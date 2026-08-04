@@ -2,11 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import {
-  gallery,
-  galleryItems,
-  type GalleryItem,
-} from "@/lib/content/gallery";
+import { gallery } from "@/lib/content/gallery";
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
@@ -20,7 +16,19 @@ const VISIBLE_COUNT = 8;
 const STAGGER_MS = 55;
 const MAX_STAGGER = 8;
 
-function Tile({ item, onOpen }: { item: GalleryItem; onOpen: () => void }) {
+export interface SectionGalleryItem {
+  id: string;
+  label: string;
+  caption: string;
+  aspect: string;
+  image: string;
+}
+
+interface GalleryProps {
+  items: SectionGalleryItem[];
+}
+
+function Tile({ item, onOpen }: { item: SectionGalleryItem; onOpen: () => void }) {
   return (
     <button
       type="button"
@@ -78,7 +86,7 @@ function Lightbox({
   onPrev,
   onNext,
 }: {
-  items: GalleryItem[];
+  items: SectionGalleryItem[];
   index: number;
   onClose: () => void;
   onPrev: () => void;
@@ -205,7 +213,7 @@ function Lightbox({
   );
 }
 
-export function Gallery() {
+export function Gallery({ items }: GalleryProps) {
   const sectionRef = useRef<HTMLElement>(null);
   const headerRef = useRef<HTMLDivElement>(null);
   const [inView, setInView] = useState(false);
@@ -228,22 +236,20 @@ export function Gallery() {
     return () => io.disconnect();
   }, []);
 
-  const hasMore = galleryItems.length > VISIBLE_COUNT;
-  const visibleItems = expanded ? galleryItems : galleryItems.slice(0, VISIBLE_COUNT);
-  const hiddenItems = galleryItems.slice(VISIBLE_COUNT);
+  const hasMore = items.length > VISIBLE_COUNT;
+  const visibleItems = expanded ? items : items.slice(0, VISIBLE_COUNT);
+  const hiddenItems = items.slice(VISIBLE_COUNT);
 
   const openAt = (i: number) => setLightbox(i);
   const close = useCallback(() => setLightbox(null), []);
   const prev = useCallback(
     () =>
-      setLightbox((i) =>
-        i === null ? i : (i - 1 + galleryItems.length) % galleryItems.length
-      ),
-    []
+      setLightbox((i) => (i === null ? i : (i - 1 + items.length) % items.length)),
+    [items.length]
   );
   const next = useCallback(
-    () => setLightbox((i) => (i === null ? i : (i + 1) % galleryItems.length)),
-    []
+    () => setLightbox((i) => (i === null ? i : (i + 1) % items.length)),
+    [items.length]
   );
 
   const toggleMore = () => {
@@ -375,7 +381,7 @@ export function Gallery() {
       {/* ---- Lightbox ---- */}
       {lightbox !== null && (
         <Lightbox
-          items={galleryItems}
+          items={items}
           index={lightbox}
           onClose={close}
           onPrev={prev}

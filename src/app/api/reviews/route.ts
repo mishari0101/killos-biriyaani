@@ -1,65 +1,90 @@
-import { seedReviews, type ReviewItem } from "@/lib/content/reviews";
+import { getSession } from "@/lib/auth/session";
+import { createReview, listReviews, toReviewInput } from "@/lib/reviews/service";
+import { validateReview } from "@/lib/reviews/validate";
 
 export const dynamic = "force-dynamic";
 
 const NO_STORE = { "Cache-Control": "no-store" };
 
-function toReview(raw: unknown): ReviewItem | null {
-  if (!raw || typeof raw !== "object") return null;
-  const r = raw as Record<string, unknown>;
-  const name = typeof r.name === "string" ? r.name.trim() : "";
-  const text = typeof r.text === "string" ? r.text.trim() : "";
-  if (!name || !text) return null;
-  const rawRating = typeof r.rating === "number" ? r.rating : 5;
-  return {
-    id:
-      typeof r.id === "string" && r.id
-        ? r.id
-        : `review-${name.toLowerCase().replace(/\s+/g, "-")}`,
-    name,
-    rating: Math.min(5, Math.max(1, Math.round(rawRating))),
-    date: typeof r.date === "string" && r.date ? r.date : "Verified review",
-    text,
-    image: typeof r.image === "string" && r.image ? r.image : undefined,
-    pinned: r.pinned === true,
-  };
+function asString(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed || undefined;
 }
 
-function normalize(payload: unknown): ReviewItem[] {
-  let list: unknown;
-  if (Array.isArray(payload)) {
-    list = payload;
-  } else if (payload && typeof payload === "object") {
-    const obj = payload as Record<string, unknown>;
-    list = obj.reviews ?? obj.data ?? obj.items ?? [];
-  }
-  if (!Array.isArray(list)) return [];
-  return list
-    .map(toReview)
-    .filter((r): r is ReviewItem => r !== null);
+function asEnum<T extends string>(value: unknown, allowed: readonly T[]): T | undefined {
+  return typeof value === "string" && (allowed as readonly string[]).includes(value)
+    ? (value as T)
+    : undefined;
 }
 
-export async function GET() {
-  const url = process.env.REVIEWS_API_URL;
-
-  if (!url) {
-    return Response.json(seedReviews, { headers: NO_STORE });
+export async function GET(request: Request) {
+  const session = await getSession();
+  if (!session) {
+    return Response.json({ ok: false, error: "Unauthorized." }, { status: 401, headers: NO_STORE });
   }
 
   try {
-    const token = process.env.REVIEWS_API_TOKEN;
-    const res = await fetch(url, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-      signal: AbortSignal.timeout(5000),
-      cache: "no-store",
-    });
-    if (!res.ok) throw new Error(`Reviews API responded ${res.status}`);
-    const items = normalize(await res.json());
-    return Response.json(items.length ? items : seedReviews, {
-      headers: NO_STORE,
-    });
+    const url = new URL(request.url);
+    const search = asString(url.searchParams.get("search"));
+    const visibility = asEnum(url.searchParams.get("visibility"), ["visible", "hidden"]);
+    const featured = asEnum(url.searchParams.get("featured"), ["featured", "regular"]);
+    const rawRating = Number(url.searchParams.get("rating"));
+    const rating = Number.isInteger(rawRating) && rawRating >= 1 && rawRating <= 5 ? rawRating : undefined;
+    const page = Math.max(1, parseInt(url.searchParams.get("page") ?? "1", 10) || 1);
+    const pageSize = Math.min(50, Math.max(1, parseInt(url.searchParams.get("pageSize") ?? "24", 10) || 24));
+
+    const result = await listReviews({ search, visibility, featured, rating, page, pageSize });
+    return Response.json({ ok: true, ...result }, { status: 200, headers: NO_STORE });
   } catch (error) {
-    console.error("[api/reviews]", error);
-    return Response.json(seedReviews, { headers: NO_STORE });
+    console.error("GET /api/reviews failed:", error);
+    return Response.json(
+      { ok: false, error: "Could not load the reviews." },
+      { status: 500, headers: NO_STORE }
+    );
+  }
+}
+
+export async function POST(request: Request) {
+  const session = await getSession();
+  if (!session) {
+    return Response.json({ ok: false, error: "Unauthorized." }, { status: 401, headers: NO_STORE });
+  }
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return Response.json(
+      { ok: false, error: "Invalid request body." },
+      { status: 400, headers: NO_STORE }
+    );
+  }
+
+  if (!body || typeof body !== "object") {
+    return Response.json(
+      { ok: false, error: "Review payload must be a JSON object." },
+      { status: 400, headers: NO_STORE }
+    );
+  }
+
+  const data = toReviewInput(body as Record<string, unknown>);
+  const errors = validateReview(data);
+  if (Object.keys(errors).length > 0) {
+    return Response.json(
+      { ok: false, error: "Some fields are invalid.", errors },
+      { status: 422, headers: NO_STORE }
+    );
+  }
+
+  try {
+    const item = await createReview(data);
+    return Response.json({ ok: true, item }, { status: 201, headers: NO_STORE });
+  } catch (error) {
+    console.error("POST /api/reviews failed:", error);
+    return Response.json(
+      { ok: false, error: "Could not create the review." },
+      { status: 500, headers: NO_STORE }
+    );
   }
 }

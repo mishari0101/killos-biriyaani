@@ -1,17 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import {
-  branches,
-  seedBranches,
-  type BranchItem,
-} from "@/lib/content/branches";
-import {
-  fetchBranches,
-  BRANCHES_POLL_MS,
-  telHref,
-  directionsUrl,
-} from "@/lib/branches";
+import { branches, type BranchItem } from "@/lib/content/branches";
+import { telHref, directionsUrl } from "@/lib/branches";
 import {
   ClockIcon,
   MapPinIcon,
@@ -113,29 +104,9 @@ function BranchCard({ branch, index }: { branch: BranchItem; index: number }) {
   );
 }
 
-export function Branches() {
+export function Branches({ items }: { items: BranchItem[] }) {
   const sectionRef = useRef<HTMLElement>(null);
   const [inView, setInView] = useState(false);
-  const [items, setItems] = useState<BranchItem[]>(seedBranches);
-
-  useEffect(() => {
-    let alive = true;
-    const load = async () => {
-      const next = await fetchBranches();
-      if (alive) setItems(next);
-    };
-    load();
-    if (BRANCHES_POLL_MS > 0) {
-      const id = setInterval(load, BRANCHES_POLL_MS);
-      return () => {
-        alive = false;
-        clearInterval(id);
-      };
-    }
-    return () => {
-      alive = false;
-    };
-  }, []);
 
   useEffect(() => {
     const el = sectionRef.current;

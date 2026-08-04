@@ -2,11 +2,11 @@ export const site = {
   name: "Killo's Biriyani",
   shortName: "Killo's",
   tagline: "Arabian Restaurant",
-  phone: "+94 77 000 0000",
-  phoneHref: "tel:+94770000000",
-  whatsapp: "94770000000",
-  email: "hello@killosbiriyani.com",
-  address: "No. 12, Main Street, Colombo, Sri Lanka",
+  phone: "",
+  phoneHref: "",
+  whatsapp: "",
+  email: "",
+  address: "",
   hours: {
     label: "Opening Hours",
     time: "10:00 AM – 12:00 AM",
@@ -45,6 +45,6 @@ export const moreNavLinks = [
 ] as const;
 
 export const logo = {
-  src: "/images/logo/logo.svg",
+  src: "/images/logo/killoslogo.webp",
   alt: `${site.name} — ${site.tagline}`,
 } as const;

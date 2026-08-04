@@ -45,12 +45,32 @@ export const success = {
   title: "Reservation Request Sent",
   message:
     "Our team will contact you shortly to confirm your booking.",
+  numberLabel: "Reservation Number",
 } as const;
 
 export const submitCta = {
   idle: "Reserve Table",
   loading: "Reserving...",
   footnote: "We'll confirm your booking by phone or WhatsApp.",
+} as const;
+
+export const enquiryForm = {
+  title: "Send a Message",
+  chip: "We Reply Fast",
+  name: "Full Name",
+  phone: "Phone Number",
+  email: "Email (optional)",
+  subject: "Subject",
+  message: "Your Message",
+  idle: "Send Message",
+  loading: "Sending...",
+  footnote: "We'll get back to you by phone or email.",
+} as const;
+
+export const enquirySuccess = {
+  title: "Thank you for contacting us.",
+  message: "Our team will contact you shortly.",
+  numberLabel: "Reference Number",
 } as const;
 
 export interface ReservationInput {
@@ -61,4 +81,12 @@ export interface ReservationInput {
   time: string;
   request?: string;
   occasion?: string;
+}
+
+export interface EnquiryInput {
+  name: string;
+  phone: string;
+  email?: string;
+  subject: string;
+  message: string;
 }

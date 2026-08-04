@@ -2,21 +2,23 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
-import {
-  reviews,
-  seedReviews,
-  type ReviewItem,
-} from "@/lib/content/reviews";
-import {
-  fetchReviews,
-  REVIEWS_INITIAL,
-  REVIEWS_POLL_MS,
-} from "@/lib/reviews";
+import { reviews } from "@/lib/content/reviews";
 import { ChevronDownIcon, GoogleIcon, StarIcon } from "@/components/ui/icons";
 
 const STAGGER_MS = 60;
 const MAX_STAGGER = 8;
 const MOBILE_GAP = 16;
+const INITIAL_VISIBLE = 6;
+
+export interface SectionReviewItem {
+  id: string;
+  name: string;
+  rating: number;
+  date: string;
+  text: string;
+  image?: string;
+  pinned?: boolean;
+}
 
 function Stars({ rating, size = 14 }: { rating: number; size?: number }) {
   const filled = Math.round(rating);
@@ -57,7 +59,7 @@ function Avatar({ name, image }: { name: string; image?: string }) {
   );
 }
 
-function ReviewCard({ review }: { review: ReviewItem }) {
+function ReviewCard({ review }: { review: SectionReviewItem }) {
   return (
     <article className="group flex h-full flex-col rounded-[24px] border border-[var(--review-border)] bg-[var(--review-card-bg)] p-6 shadow-[var(--review-card-shadow)] transition-all duration-300 ease-in-out hover:-translate-y-1.5 hover:shadow-[var(--review-card-shadow-hover)] sm:p-7">
       <div className="flex items-start justify-between gap-4">
@@ -103,44 +105,15 @@ function ReviewCard({ review }: { review: ReviewItem }) {
   );
 }
 
-export function Reviews() {
+export function Reviews({ items }: { items: SectionReviewItem[] }) {
   const sectionRef = useRef<HTMLElement>(null);
   const headerRef = useRef<HTMLDivElement>(null);
   const [inView, setInView] = useState(false);
-  const [items, setItems] = useState<ReviewItem[]>(seedReviews);
   const [expanded, setExpanded] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const trackRef = useRef<HTMLDivElement | null>(null);
   const rafRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    let alive = true;
-    const load = async () => {
-      const next = await fetchReviews();
-      if (alive) setItems(next);
-    };
-    load();
-    if (REVIEWS_POLL_MS > 0) {
-      const id = setInterval(load, REVIEWS_POLL_MS);
-      return () => {
-        alive = false;
-        clearInterval(id);
-      };
-    }
-    return () => {
-      alive = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (REVIEWS_POLL_MS <= 0) return;
-    const onFocus = () => {
-      fetchReviews().then(setItems);
-    };
-    window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
-  }, []);
 
   useEffect(() => {
     const el = sectionRef.current;
@@ -174,8 +147,8 @@ export function Reviews() {
     [items]
   );
 
-  const hasMore = sorted.length > REVIEWS_INITIAL;
-  const visible = expanded ? sorted : sorted.slice(0, REVIEWS_INITIAL);
+  const hasMore = sorted.length > INITIAL_VISIBLE;
+  const visible = expanded ? sorted : sorted.slice(0, INITIAL_VISIBLE);
 
   const toggleMore = () => {
     if (expanded) {
@@ -353,7 +326,7 @@ export function Reviews() {
             <div
               key={review.id}
               className={`reviews-slide w-[88%] shrink-0 snap-center snap-always md:w-auto ${
-                i < REVIEWS_INITIAL ? "review-item" : "review-card-in"
+                i < INITIAL_VISIBLE ? "review-item" : "review-card-in"
               }`}
               style={
                 {

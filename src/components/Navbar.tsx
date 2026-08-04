@@ -238,13 +238,15 @@ export function Navbar() {
 
           {/* ---- Actions ---- */}
           <div className="flex items-center gap-3">
-            <a
-              href={site.phoneHref}
-              className={iconBtn}
-              aria-label={`Call ${site.phone}`}
-            >
-              <PhoneIcon size={16} />
-            </a>
+            {site.phoneHref && (
+              <a
+                href={site.phoneHref}
+                className={iconBtn}
+                aria-label={`Call ${site.phone}`}
+              >
+                <PhoneIcon size={16} />
+              </a>
+            )}
             <span className="hidden lg:block">
               <ThemeToggle />
             </span>
@@ -361,12 +363,14 @@ export function Navbar() {
             >
               Reserve a Table
             </a>
-            <a
-              href={site.phoneHref}
-              className="mt-3 flex h-12 items-center justify-center gap-2 rounded-full border border-[var(--icon-border)] bg-[var(--icon-bg)] text-sm uppercase tracking-[0.14em] text-[var(--fg)] backdrop-blur-md transition-colors duration-400 hover:border-[var(--icon-border)] hover:bg-[var(--icon-bg-hover)]"
-            >
-              <PhoneIcon size={16} /> Call Us
-            </a>
+            {site.phoneHref && (
+              <a
+                href={site.phoneHref}
+                className="mt-3 flex h-12 items-center justify-center gap-2 rounded-full border border-[var(--icon-border)] bg-[var(--icon-bg)] text-sm uppercase tracking-[0.14em] text-[var(--fg)] backdrop-blur-md transition-colors duration-400 hover:border-[var(--icon-border)] hover:bg-[var(--icon-bg-hover)]"
+              >
+                <PhoneIcon size={16} /> Call Us
+              </a>
+            )}
           </div>
         </div>
       </div>

@@ -2,9 +2,6 @@ import type { Metadata, Viewport } from "next";
 import { Playfair_Display, Poppins } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
-import { LoadingProvider } from "@/components/ui/loading-provider";
-import { LoadingScreen } from "@/components/ui/loading-screen";
-import { Navbar } from "@/components/Navbar";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -56,13 +53,7 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body className="min-h-full antialiased">
-        <ThemeProvider>
-          <LoadingProvider>
-            <LoadingScreen />
-            <Navbar />
-            {children}
-          </LoadingProvider>
-        </ThemeProvider>
+        <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>
   );

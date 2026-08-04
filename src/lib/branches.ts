@@ -1,18 +1,4 @@
-import { seedBranches, type BranchItem } from "@/lib/content/branches";
-import { fetchJson } from "@/lib/fetch-json";
-
-const rawPoll = Number(process.env.NEXT_PUBLIC_BRANCHES_POLL_MS ?? 60000);
-export const BRANCHES_POLL_MS =
-  Number.isFinite(rawPoll) && rawPoll >= 0 ? Math.floor(rawPoll) : 60000;
-
-export function fetchBranches(): Promise<BranchItem[]> {
-  return fetchJson<BranchItem[]>(
-    "/api/branches",
-    "branches",
-    seedBranches,
-    (data) => Array.isArray(data) && data.length > 0
-  );
-}
+import type { BranchItem } from "@/lib/content/branches";
 
 export function telHref(phone: string): string {
   const digits = phone.replace(/\D/g, "");

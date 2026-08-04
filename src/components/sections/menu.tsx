@@ -2,19 +2,23 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
-import {
-  menu,
-  menuCategories,
-  menuItems,
-  type MenuItem,
-} from "@/lib/content/menu";
+import { menu, menuCategories } from "@/lib/content/menu";
 import { ArrowRightIcon, ChevronDownIcon, ImageIcon } from "@/components/ui/icons";
+
+export interface SectionMenuItem {
+  id: string;
+  name: string;
+  description: string;
+  price: string;
+  category: string;
+  image: string;
+}
 
 const STAGGER_MS = 55;
 const MAX_STAGGER = 8;
 const VISIBLE_COUNT = 6;
 
-function DishCard({ item, index }: { item: MenuItem; index: number }) {
+function DishCard({ item, index }: { item: SectionMenuItem; index: number }) {
   const delay = Math.min(index, MAX_STAGGER) * STAGGER_MS;
   return (
     <article
@@ -71,7 +75,7 @@ function DishCard({ item, index }: { item: MenuItem; index: number }) {
   );
 }
 
-export function Menu() {
+export function Menu({ items }: { items: SectionMenuItem[] }) {
   const sectionRef = useRef<HTMLElement>(null);
   const headerRef = useRef<HTMLDivElement>(null);
   const [inView, setInView] = useState(false);
@@ -97,9 +101,9 @@ export function Menu() {
   const filtered = useMemo(
     () =>
       active === "all"
-        ? menuItems
-        : menuItems.filter((m) => m.category === active),
-    [active]
+        ? items
+        : items.filter((m) => m.category === active),
+    [active, items]
   );
 
   const visibleItems = expanded ? filtered : filtered.slice(0, VISIBLE_COUNT);

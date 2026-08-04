@@ -41,7 +41,7 @@ export interface FooterContent {
 
 export const seedFooter: FooterContent = {
   logo: {
-    src: "/images/logo/logo.svg",
+    src: "/images/logo/killoslogo.webp",
     alt: "Killo's Biriyani — Authentic Arabian Restaurant",
   },
   name: "Killo's Biriyani",
@@ -82,6 +82,7 @@ export const seedFooter: FooterContent = {
     { id: "reviews", label: "Reviews", href: "#reviews", enabled: true },
     { id: "branches", label: "Branches", href: "#branches", enabled: true },
     { id: "faq", label: "FAQ", href: "#faq", enabled: true },
+    { id: "blog", label: "Blog", href: "/blog", enabled: true },
     { id: "contact", label: "Contact", href: "#contact", enabled: true },
   ],
   phones: ["076 66 36 37 3", "077 11 22 33 8"],

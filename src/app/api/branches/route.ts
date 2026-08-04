@@ -1,80 +1,88 @@
-import { seedBranches, type BranchItem } from "@/lib/content/branches";
+import { getSession } from "@/lib/auth/session";
+import { createBranch, listBranches, toBranchInput } from "@/lib/branches/service";
+import { validateBranch } from "@/lib/branches/validate";
 
 export const dynamic = "force-dynamic";
 
 const NO_STORE = { "Cache-Control": "no-store" };
 
-function toPhones(raw: unknown): string[] {
-  if (!raw) return [];
-  const list = Array.isArray(raw) ? raw : [raw];
-  return list
-    .map((p) => (typeof p === "string" ? p.trim() : ""))
-    .filter(Boolean);
+function asString(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed || undefined;
 }
 
-function toBranch(raw: unknown): BranchItem | null {
-  if (!raw || typeof raw !== "object") return null;
-  const b = raw as Record<string, unknown>;
-  const name = typeof b.name === "string" ? b.name.trim() : "";
-  const address = typeof b.address === "string" ? b.address.trim() : "";
-  const phones = toPhones(b.phones ?? b.phone);
-  if (!name || !address) return null;
-  const mapUrl = typeof b.mapUrl === "string" && b.mapUrl ? b.mapUrl : "";
-  return {
-    id:
-      typeof b.id === "string" && b.id
-        ? b.id
-        : `branch-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
-    name,
-    address,
-    hours:
-      typeof b.hours === "string" && b.hours ? b.hours : "10:00 AM – 12:00 AM",
-    phones: phones.length ? phones : ["076 66 36 37 3", "077 11 22 33 8"],
-    mapUrl,
-    mapQuery:
-      typeof b.mapQuery === "string" && b.mapQuery ? b.mapQuery : undefined,
-    primary: b.primary === true,
-  };
+function asEnum<T extends string>(value: unknown, allowed: readonly T[]): T | undefined {
+  return typeof value === "string" && (allowed as readonly string[]).includes(value)
+    ? (value as T)
+    : undefined;
 }
 
-function normalize(payload: unknown): BranchItem[] {
-  let list: unknown;
-  if (Array.isArray(payload)) {
-    list = payload;
-  } else if (payload && typeof payload === "object") {
-    const obj = payload as Record<string, unknown>;
-    list = obj.branches ?? obj.data ?? obj.items ?? [];
-  }
-  if (!Array.isArray(list)) return [];
-  return list
-    .map(toBranch)
-    .filter((b): b is BranchItem => b !== null)
-    .sort(
-      (a, b) => Number(b.primary ?? false) - Number(a.primary ?? false)
-    );
-}
-
-export async function GET() {
-  const url = process.env.BRANCHES_API_URL;
-
-  if (!url) {
-    return Response.json(seedBranches, { headers: NO_STORE });
+export async function GET(request: Request) {
+  const session = await getSession();
+  if (!session) {
+    return Response.json({ ok: false, error: "Unauthorized." }, { status: 401, headers: NO_STORE });
   }
 
   try {
-    const token = process.env.BRANCHES_API_TOKEN;
-    const res = await fetch(url, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-      signal: AbortSignal.timeout(5000),
-      cache: "no-store",
-    });
-    if (!res.ok) throw new Error(`Branches API responded ${res.status}`);
-    const items = normalize(await res.json());
-    return Response.json(items.length ? items : seedBranches, {
-      headers: NO_STORE,
-    });
+    const url = new URL(request.url);
+    const search = asString(url.searchParams.get("search"));
+    const visibility = asEnum(url.searchParams.get("visibility"), ["visible", "hidden"]);
+    const featured = asEnum(url.searchParams.get("featured"), ["featured", "regular"]);
+    const page = Math.max(1, parseInt(url.searchParams.get("page") ?? "1", 10) || 1);
+    const pageSize = Math.min(50, Math.max(1, parseInt(url.searchParams.get("pageSize") ?? "24", 10) || 24));
+
+    const result = await listBranches({ search, visibility, featured, page, pageSize });
+    return Response.json({ ok: true, ...result }, { status: 200, headers: NO_STORE });
   } catch (error) {
-    console.error("[api/branches]", error);
-    return Response.json(seedBranches, { headers: NO_STORE });
+    console.error("GET /api/branches failed:", error);
+    return Response.json(
+      { ok: false, error: "Could not load the branches." },
+      { status: 500, headers: NO_STORE }
+    );
+  }
+}
+
+export async function POST(request: Request) {
+  const session = await getSession();
+  if (!session) {
+    return Response.json({ ok: false, error: "Unauthorized." }, { status: 401, headers: NO_STORE });
+  }
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return Response.json(
+      { ok: false, error: "Invalid request body." },
+      { status: 400, headers: NO_STORE }
+    );
+  }
+
+  if (!body || typeof body !== "object") {
+    return Response.json(
+      { ok: false, error: "Branch payload must be a JSON object." },
+      { status: 400, headers: NO_STORE }
+    );
+  }
+
+  const data = toBranchInput(body as Record<string, unknown>);
+  const errors = validateBranch(data);
+  if (Object.keys(errors).length > 0) {
+    return Response.json(
+      { ok: false, error: "Some fields are invalid.", errors },
+      { status: 422, headers: NO_STORE }
+    );
+  }
+
+  try {
+    const item = await createBranch(data);
+    return Response.json({ ok: true, item }, { status: 201, headers: NO_STORE });
+  } catch (error) {
+    console.error("POST /api/branches failed:", error);
+    return Response.json(
+      { ok: false, error: "Could not create the branch." },
+      { status: 500, headers: NO_STORE }
+    );
   }
 }

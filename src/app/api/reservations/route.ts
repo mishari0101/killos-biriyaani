@@ -1,26 +1,105 @@
+import { getSession } from "@/lib/auth/session";
 import {
-  validateReservationFields,
-  type ReservationFormValues,
-} from "@/lib/contact";
+  createReservation,
+  DuplicateReservationError,
+  listReservations,
+  resolveBranchName,
+  toReservationInput,
+} from "@/lib/reservations/service";
+import { validateReservation } from "@/lib/reservations/validate";
+import {
+  type ReservationPeriodFilter,
+  type ReservationSortKey,
+  type ReservationStatusFilter,
+} from "@/lib/reservations/types";
+import { clientIp, consumeRateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
 const NO_STORE = { "Cache-Control": "no-store" };
 
-function coerce(body: unknown): ReservationFormValues {
-  const b = (body ?? {}) as Record<string, unknown>;
-  return {
-    name: typeof b.name === "string" ? b.name : "",
-    phone: typeof b.phone === "string" ? b.phone : "",
-    guests: b.guests != null ? String(b.guests) : "",
-    date: typeof b.date === "string" ? b.date : "",
-    time: typeof b.time === "string" ? b.time : "",
-    occasion: typeof b.occasion === "string" ? b.occasion : "",
-    request: typeof b.request === "string" ? b.request : "",
-  };
+const PUBLIC_LIMIT = 5;
+const PUBLIC_WINDOW_MS = 10 * 60 * 1000;
+
+function asString(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed || undefined;
+}
+
+function asEnum<T extends string>(value: unknown, allowed: readonly T[]): T | undefined {
+  return typeof value === "string" && (allowed as readonly string[]).includes(value)
+    ? (value as T)
+    : undefined;
+}
+
+export async function GET(request: Request) {
+  const session = await getSession();
+  if (!session) {
+    return Response.json({ ok: false, error: "Unauthorized." }, { status: 401, headers: NO_STORE });
+  }
+
+  try {
+    const url = new URL(request.url);
+    const search = asString(url.searchParams.get("search"));
+    const status = asEnum<ReservationStatusFilter>(url.searchParams.get("status"), [
+      "all",
+      "PENDING",
+      "CONFIRMED",
+      "COMPLETED",
+      "CANCELLED",
+      "NO_SHOW",
+    ]);
+    const period = asEnum<ReservationPeriodFilter>(url.searchParams.get("period"), [
+      "all",
+      "today",
+      "upcoming",
+      "past",
+    ]);
+    const sort = asEnum<ReservationSortKey>(url.searchParams.get("sort"), [
+      "newest",
+      "oldest",
+      "date",
+      "guests",
+    ]);
+    const page = Math.max(1, parseInt(url.searchParams.get("page") ?? "1", 10) || 1);
+    const pageSize = Math.min(
+      100,
+      Math.max(1, parseInt(url.searchParams.get("pageSize") ?? "24", 10) || 24)
+    );
+
+    const result = await listReservations({ search, status, period, sort, page, pageSize });
+    return Response.json({ ok: true, ...result }, { status: 200, headers: NO_STORE });
+  } catch (error) {
+    console.error("GET /api/reservations failed:", error);
+    return Response.json(
+      { ok: false, error: "Could not load the reservations." },
+      { status: 500, headers: NO_STORE }
+    );
+  }
 }
 
 export async function POST(request: Request) {
+  const check = consumeRateLimit(`reservations:${clientIp(request)}`, {
+    limit: PUBLIC_LIMIT,
+    windowMs: PUBLIC_WINDOW_MS,
+  });
+  if (!check.allowed) {
+    return Response.json(
+      {
+        ok: false,
+        error: "Too many reservation requests. Please try again in a few minutes.",
+      },
+      {
+        status: 429,
+        headers: {
+          ...NO_STORE,
+          "Retry-After": String(Math.max(1, Math.ceil(check.retryAfterMs / 1000))),
+        },
+      }
+    );
+  }
+
   let body: unknown;
   try {
     body = await request.json();
@@ -31,65 +110,44 @@ export async function POST(request: Request) {
     );
   }
 
-  const values = coerce(body);
-  const errors = validateReservationFields(values);
-  if (Object.keys(errors).length > 0) {
-    const [field, message] = Object.entries(errors)[0];
+  if (!body || typeof body !== "object") {
     return Response.json(
-      { ok: false, field, error: message },
+      { ok: false, error: "Reservation payload must be a JSON object." },
       { status: 400, headers: NO_STORE }
     );
   }
 
-  const payload = {
-    name: values.name.trim(),
-    phone: values.phone.replace(/\D/g, ""),
-    guests: Number(values.guests),
-    date: values.date,
-    time: values.time,
-    ...(values.occasion ? { occasion: values.occasion } : {}),
-    ...(values.request.trim() ? { request: values.request.trim() } : {}),
-  };
+  const data = toReservationInput(body as Record<string, unknown>);
+  if (!data.branch) {
+    data.branch = await resolveBranchName();
+  }
 
-  const url = process.env.RESERVATIONS_API_URL;
-
-  if (!url) {
-    console.warn(
-      "[api/reservations] No RESERVATIONS_API_URL configured; reservation accepted in demo mode.",
-      payload
-    );
+  const errors = validateReservation(data);
+  if (Object.keys(errors).length > 0) {
+    const [field, message] = Object.entries(errors)[0];
     return Response.json(
-      { ok: true, accepted: true, queued: true },
-      { status: 201, headers: NO_STORE }
+      { ok: false, field, error: message },
+      { status: 422, headers: NO_STORE }
     );
   }
 
   try {
-    const token = process.env.RESERVATIONS_API_TOKEN;
-    const res = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(5000),
-      cache: "no-store",
-    });
-    if (!res.ok) throw new Error(`Reservations API responded ${res.status}`);
-    const data = await res.json().catch(() => ({}));
+    const item = await createReservation(data);
     return Response.json(
-      { ok: true, ...(data && typeof data === "object" ? data : {}) },
+      { ok: true, item: { number: item.number } },
       { status: 201, headers: NO_STORE }
     );
   } catch (error) {
-    console.error("[api/reservations]", error);
+    if (error instanceof DuplicateReservationError) {
+      return Response.json(
+        { ok: false, error: "This slot is already booked for this phone number." },
+        { status: 409, headers: NO_STORE }
+      );
+    }
+    console.error("POST /api/reservations failed:", error);
     return Response.json(
-      {
-        ok: false,
-        error: "Could not reach the reservation service. Please try again.",
-      },
-      { status: 502, headers: NO_STORE }
+      { ok: false, error: "Could not save your reservation. Please try again." },
+      { status: 500, headers: NO_STORE }
     );
   }
 }

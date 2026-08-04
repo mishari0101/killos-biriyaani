@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { faqs, seedFaqs, type FaqItem } from "@/lib/content/faqs";
-import { fetchFaqs, FAQS_POLL_MS } from "@/lib/faqs";
+import { fetchFaqs, FAQS_POLL_MS } from "@/lib/faqs/client";
 
 const STAGGER_MS = 80;
 

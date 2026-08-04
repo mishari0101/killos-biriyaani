@@ -277,3 +277,360 @@ export const TikTokIcon = ({ size = 20, ...props }: IconProps) => (
     <path d="M16.6 5.82A4.28 4.28 0 0 1 15.54 3h-3.09v12.4a2.59 2.59 0 1 1-2.59-2.59c.27 0 .53.04.78.12V9.77a5.76 5.76 0 0 0-.78-.06A5.68 5.68 0 1 0 15.54 15V9.01a7.35 7.35 0 0 0 4.3 1.38V7.3a4.28 4.28 0 0 1-3.24-1.48Z" />
   </svg>
 );
+
+/* ============================================================
+   Admin icons
+   ============================================================ */
+
+export const GridIcon = (props: IconProps) => (
+  <Base {...props}>
+    <rect x="3" y="3" width="7" height="7" rx="1.5" />
+    <rect x="14" y="3" width="7" height="7" rx="1.5" />
+    <rect x="14" y="14" width="7" height="7" rx="1.5" />
+    <rect x="3" y="14" width="7" height="7" rx="1.5" />
+  </Base>
+);
+
+export const UtensilsIcon = (props: IconProps) => (
+  <Base {...props}>
+    <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" />
+    <path d="M7 2v20" />
+    <path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7" />
+  </Base>
+);
+
+export const SparklesIcon = (props: IconProps) => (
+  <Base {...props}>
+    <path d="M12 3l1.8 4.8L18.5 9l-4.7 1.2L12 15l-1.8-4.8L5.5 9l4.7-1.2L12 3Z" />
+    <path d="M19 14l.8 2.2 2.2.8-2.2.8L19 20l-.8-2.2-2.2-.8 2.2-.8L19 14Z" />
+  </Base>
+);
+
+export const StoreIcon = (props: IconProps) => (
+  <Base {...props}>
+    <path d="M3 9l1.5-5h15L21 9" />
+    <path d="M3 9a2.5 2.5 0 0 0 5 0 2.5 2.5 0 0 0 5 0 2.5 2.5 0 0 0 5 0 2.5 2.5 0 0 0 0 0" />
+    <path d="M4 13v8h16v-8" />
+    <path d="M9 21v-6h6v6" />
+  </Base>
+);
+
+export const SearchIcon = (props: IconProps) => (
+  <Base {...props}>
+    <circle cx="11" cy="11" r="7" />
+    <path d="M21 21l-4.35-4.35" />
+  </Base>
+);
+
+export const LogOutIcon = (props: IconProps) => (
+  <Base {...props}>
+    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+    <path d="M16 17l5-5-5-5" />
+    <path d="M21 12H9" />
+  </Base>
+);
+
+export const SettingsIcon = (props: IconProps) => (
+  <Base {...props}>
+    <circle cx="12" cy="12" r="3" />
+    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" />
+  </Base>
+);
+
+export const PlusIcon = (props: IconProps) => (
+  <Base {...props}>
+    <path d="M12 5v14" />
+    <path d="M5 12h14" />
+  </Base>
+);
+
+export const TrendUpIcon = (props: IconProps) => (
+  <Base {...props}>
+    <path d="M23 6l-9.5 9.5-5-5L1 18" />
+    <path d="M17 6h6v6" />
+  </Base>
+);
+
+export const TrendDownIcon = (props: IconProps) => (
+  <Base {...props}>
+    <path d="M23 18l-9.5-9.5-5 5L1 6" />
+    <path d="M17 18h6v-6" />
+  </Base>
+);
+
+export const MoreHorizontalIcon = (props: IconProps) => (
+  <Base {...props}>
+    <circle cx="12" cy="12" r="1" fill="currentColor" stroke="none" />
+    <circle cx="19" cy="12" r="1" fill="currentColor" stroke="none" />
+    <circle cx="5" cy="12" r="1" fill="currentColor" stroke="none" />
+  </Base>
+);
+
+export const ExternalLinkIcon = (props: IconProps) => (
+  <Base {...props}>
+    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+    <path d="M15 3h6v6" />
+    <path d="M10 14L21 3" />
+  </Base>
+);
+
+export const MessageSquareIcon = (props: IconProps) => (
+  <Base {...props}>
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+  </Base>
+);
+
+export const MailIcon = (props: IconProps) => (
+  <Base {...props}>
+    <rect x="2" y="4" width="20" height="16" rx="2" />
+    <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+  </Base>
+);
+
+export const CalendarDaysIcon = (props: IconProps) => (
+  <Base {...props}>
+    <rect x="3" y="4" width="18" height="18" rx="2" />
+    <path d="M16 2v4" />
+    <path d="M8 2v4" />
+    <path d="M3 10h18" />
+    <path d="M8 14h.01" />
+    <path d="M12 14h.01" />
+    <path d="M16 14h.01" />
+    <path d="M8 18h.01" />
+    <path d="M12 18h.01" />
+  </Base>
+);
+
+export const PenLineIcon = (props: IconProps) => (
+  <Base {...props}>
+    <path d="M12 20h9" />
+    <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+  </Base>
+);
+
+export const GlobeIcon = (props: IconProps) => (
+  <Base {...props}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M3 12h18" />
+    <path d="M12 3a15 15 0 0 1 0 18 15 15 0 0 1 0-18Z" />
+  </Base>
+);
+
+export const ShieldIcon = (props: IconProps) => (
+  <Base {...props}>
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" />
+  </Base>
+);
+
+export const ArrowRightLongIcon = (props: IconProps) => (
+  <Base {...props}>
+    <path d="M5 12h14" />
+    <path d="m15 6 6 6-6 6" />
+  </Base>
+);
+
+export const DownloadIcon = (props: IconProps) => (
+  <Base {...props}>
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+    <path d="M7 10l5 5 5-5" />
+    <path d="M12 15V3" />
+  </Base>
+);
+
+export const RefreshIcon = (props: IconProps) => (
+  <Base {...props}>
+    <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+    <path d="M21 3v6h-6" />
+  </Base>
+);
+
+export const LockIcon = (props: IconProps) => (
+  <Base {...props}>
+    <rect x="3" y="11" width="18" height="11" rx="2" />
+    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+  </Base>
+);
+
+export const UserIcon = (props: IconProps) => (
+  <Base {...props}>
+    <circle cx="12" cy="8" r="4" />
+    <path d="M4 21c0-4 3.5-6.5 8-6.5s8 2.5 8 6.5" />
+  </Base>
+);
+
+export const YouTubeIcon = ({ size = 20, ...props }: IconProps) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="currentColor"
+    aria-hidden="true"
+    {...props}
+  >
+    <path d="M23.5 6.19a3.02 3.02 0 0 0-2.12-2.14C19.5 3.55 12 3.55 12 3.55s-7.5 0-9.38.5A3.02 3.02 0 0 0 .5 6.19C0 8.07 0 12 0 12s0 3.93.5 5.81a3.02 3.02 0 0 0 2.12 2.14c1.88.5 9.38.5 9.38.5s7.5 0 9.38-.5a3.02 3.02 0 0 0 2.12-2.14C24 15.93 24 12 24 12s0-3.93-.5-5.81ZM9.55 15.57V8.43L15.82 12l-6.27 3.57Z" />
+  </svg>
+);
+
+export const SaveIcon = (props: IconProps) => (
+  <Base {...props}>
+    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z" />
+    <path d="M17 21v-8H7v8" />
+    <path d="M7 3v5h8" />
+  </Base>
+);
+
+export const CheckCircleIcon = (props: IconProps) => (
+  <Base {...props}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="m8.5 12.2 2.4 2.4 4.6-4.8" />
+  </Base>
+);
+
+export const AlertCircleIcon = (props: IconProps) => (
+  <Base {...props}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 8v5" />
+    <path d="M12 16.5h.01" />
+  </Base>
+);
+
+export const LinkIcon = (props: IconProps) => (
+  <Base {...props}>
+    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+  </Base>
+);
+
+export const EyeIcon = (props: IconProps) => (
+  <Base {...props}>
+    <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
+    <circle cx="12" cy="12" r="3" />
+  </Base>
+);
+
+export const CopyIcon = (props: IconProps) => (
+  <Base {...props}>
+    <rect x="9" y="9" width="13" height="13" rx="2" />
+    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+  </Base>
+);
+
+export const PaletteIcon = (props: IconProps) => (
+  <Base {...props}>
+    <circle cx="13.5" cy="6.5" r="1" />
+    <circle cx="17.5" cy="10.5" r="1" />
+    <circle cx="8.5" cy="7.5" r="1" />
+    <circle cx="6.5" cy="12.5" r="1" />
+    <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.9 0 1.4-.7 1.4-1.4 0-.4-.2-.8-.4-1.1-.3-.3-.5-.7-.5-1.1a1.6 1.6 0 0 1 1.6-1.6h2.3A4.6 4.6 0 0 0 21 12.2c.5-5-3.7-10.2-9-10.2Z" />
+  </Base>
+);
+
+export const BuildingIcon = (props: IconProps) => (
+  <Base {...props}>
+    <rect x="4" y="3" width="16" height="18" rx="2" />
+    <path d="M9 8h.01" />
+    <path d="M15 8h.01" />
+    <path d="M9 12h.01" />
+    <path d="M15 12h.01" />
+    <path d="M9 16h.01" />
+    <path d="M15 16h.01" />
+    <path d="M10 21v-3h4v3" />
+  </Base>
+);
+
+export const ShareIcon = (props: IconProps) => (
+  <Base {...props}>
+    <circle cx="18" cy="5" r="3" />
+    <circle cx="6" cy="12" r="3" />
+    <circle cx="18" cy="19" r="3" />
+    <path d="m8.6 13.5 6.8 4" />
+    <path d="m15.4 6.5-6.8 4" />
+  </Base>
+);
+
+export const TagIcon = (props: IconProps) => (
+  <Base {...props}>
+    <path d="M20.59 13.41 11 3.82A2 2 0 0 0 9.59 3H4a1 1 0 0 0-1 1v5.59a2 2 0 0 0 .59 1.41l9.59 9.59a2 2 0 0 0 2.82 0l4.59-4.59a2 2 0 0 0 0-2.82Z" />
+    <circle cx="7.5" cy="7.5" r="1" fill="currentColor" stroke="none" />
+  </Base>
+);
+
+export const HashIcon = (props: IconProps) => (
+  <Base {...props}>
+    <path d="M4 9h16" />
+    <path d="M4 15h16" />
+    <path d="M10 3 8 21" />
+    <path d="M16 3l-2 18" />
+  </Base>
+);
+
+export const DraftIcon = (props: IconProps) => (
+  <Base {...props}>
+    <path d="M14 3v5h5" />
+    <path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
+    <path d="M8 13h8" />
+    <path d="M8 17h5" />
+  </Base>
+);
+
+export const TargetIcon = (props: IconProps) => (
+  <Base {...props}>
+    <circle cx="12" cy="12" r="9" />
+    <circle cx="12" cy="12" r="5" />
+    <circle cx="12" cy="12" r="1" fill="currentColor" stroke="none" />
+  </Base>
+);
+
+export const RulerIcon = (props: IconProps) => (
+  <Base {...props}>
+    <path d="M21.3 8.7 15.3 2.7a2.4 2.4 0 0 0-3.4 0L2.7 11.9a2.4 2.4 0 0 0 0 3.4l6 6a2.4 2.4 0 0 0 3.4 0l9.2-9.2a2.4 2.4 0 0 0 0-3.4Z" />
+    <path d="m7.5 10.5 2 2" />
+    <path d="m10.5 7.5 2 2" />
+    <path d="m13.5 4.5 2 2" />
+    <path d="m4.5 13.5 2 2" />
+  </Base>
+);
+
+export const SparkleIcon = (props: IconProps) => (
+  <Base {...props}>
+    <path d="M12 3v4" />
+    <path d="M12 17v4" />
+    <path d="M3 12h4" />
+    <path d="M17 12h4" />
+    <path d="M5.6 5.6l2.8 2.8" />
+    <path d="M15.6 15.6l2.8 2.8" />
+    <path d="M18.4 5.6l-2.8 2.8" />
+    <path d="M8.4 15.6l-2.8 2.8" />
+  </Base>
+);
+
+export const TrashIcon = (props: IconProps) => (
+  <Base {...props}>
+    <path d="M3 6h18" />
+    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+    <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+    <path d="M10 11v6" />
+    <path d="M14 11v6" />
+  </Base>
+);
+
+export const PencilIcon = (props: IconProps) => (
+  <Base {...props}>
+    <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+    <path d="m15 5 4 4" />
+  </Base>
+);
+
+export const StarFilledIcon = (props: IconProps) => (
+  <Base {...props} fill="currentColor" stroke="none">
+    <path d="M12 2.6l2.9 5.88 6.49.94-4.7 4.58 1.11 6.47L12 17.47l-5.8 3.05 1.1-6.47-4.69-4.58 6.49-.94L12 2.6z" />
+  </Base>
+);
+
+export const UploadCloudIcon = (props: IconProps) => (
+  <Base {...props}>
+    <path d="M4 14.9A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.2" />
+    <path d="M12 12v9" />
+    <path d="m8 17 4-4 4 4" />
+  </Base>
+);

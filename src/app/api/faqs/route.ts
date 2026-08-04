@@ -1,62 +1,75 @@
+import { getSession } from "@/lib/auth/session";
 import { seedFaqs, type FaqItem } from "@/lib/content/faqs";
+import { createFaq, listPublicFaqs, toFaqInput } from "@/lib/faqs/service";
+import { validateFaq } from "@/lib/faqs/validate";
 
 export const dynamic = "force-dynamic";
 
 const NO_STORE = { "Cache-Control": "no-store" };
 
-function toFaq(raw: unknown): FaqItem | null {
-  if (!raw || typeof raw !== "object") return null;
-  const f = raw as Record<string, unknown>;
-  const question = typeof f.question === "string" ? f.question.trim() : "";
-  const answer = typeof f.answer === "string" ? f.answer.trim() : "";
-  if (!question || !answer) return null;
+/** Map a DB FAQ row onto the public wire shape used by the FAQ accordion. */
+function toPublicItem(row: { id: number; question: string; answer: string; visible: boolean }): FaqItem {
   return {
-    id:
-      typeof f.id === "string" && f.id
-        ? f.id
-        : `faq-${question.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
-    question,
-    answer,
-    enabled: f.enabled !== false,
+    id: String(row.id),
+    question: row.question,
+    answer: row.answer,
+    enabled: row.visible,
   };
 }
 
-function normalize(payload: unknown): FaqItem[] {
-  let list: unknown;
-  if (Array.isArray(payload)) {
-    list = payload;
-  } else if (payload && typeof payload === "object") {
-    const obj = payload as Record<string, unknown>;
-    list = obj.faqs ?? obj.data ?? obj.items ?? [];
+/** Public list: visible FAQs only (featured first, then display order).
+    Falls back to the built-in static FAQs so the section is never empty. */
+export async function GET() {
+  try {
+    const rows = await listPublicFaqs();
+    const items = rows.map(toPublicItem);
+    return Response.json(items.length ? items : seedFaqs, { headers: NO_STORE });
+  } catch (error) {
+    console.error("GET /api/faqs failed:", error);
+    return Response.json(seedFaqs, { headers: NO_STORE });
   }
-  if (!Array.isArray(list)) return [];
-  return list
-    .map(toFaq)
-    .filter((f): f is FaqItem => f !== null)
-    .filter((f) => f.enabled);
 }
 
-export async function GET() {
-  const url = process.env.FAQS_API_URL;
+export async function POST(request: Request) {
+  const session = await getSession();
+  if (!session) {
+    return Response.json({ ok: false, error: "Unauthorized." }, { status: 401, headers: NO_STORE });
+  }
 
-  if (!url) {
-    return Response.json(seedFaqs, { headers: NO_STORE });
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return Response.json(
+      { ok: false, error: "Invalid request body." },
+      { status: 400, headers: NO_STORE }
+    );
+  }
+
+  if (!body || typeof body !== "object") {
+    return Response.json(
+      { ok: false, error: "FAQ payload must be a JSON object." },
+      { status: 400, headers: NO_STORE }
+    );
+  }
+
+  const data = toFaqInput(body as Record<string, unknown>);
+  const errors = validateFaq(data);
+  if (Object.keys(errors).length > 0) {
+    return Response.json(
+      { ok: false, error: "Some fields are invalid.", errors },
+      { status: 422, headers: NO_STORE }
+    );
   }
 
   try {
-    const token = process.env.FAQS_API_TOKEN;
-    const res = await fetch(url, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-      signal: AbortSignal.timeout(5000),
-      cache: "no-store",
-    });
-    if (!res.ok) throw new Error(`FAQs API responded ${res.status}`);
-    const items = normalize(await res.json());
-    return Response.json(items.length ? items : seedFaqs, {
-      headers: NO_STORE,
-    });
+    const item = await createFaq(data);
+    return Response.json({ ok: true, item }, { status: 201, headers: NO_STORE });
   } catch (error) {
-    console.error("[api/faqs]", error);
-    return Response.json(seedFaqs, { headers: NO_STORE });
+    console.error("POST /api/faqs failed:", error);
+    return Response.json(
+      { ok: false, error: "Could not create the FAQ." },
+      { status: 500, headers: NO_STORE }
+    );
   }
 }

@@ -2,41 +2,16 @@
 
 import { useEffect, useRef, useState } from "react";
 import { location } from "@/lib/content/location";
-import { seedBranches, type BranchItem } from "@/lib/content/branches";
-import {
-  fetchBranches,
-  BRANCHES_POLL_MS,
-  directionsUrl,
-  mapEmbedUrl,
-} from "@/lib/branches";
+import { type BranchItem } from "@/lib/content/branches";
+import { directionsUrl, mapEmbedUrl } from "@/lib/branches";
 import { MapPinIcon, RouteIcon } from "@/components/ui/icons";
 
 const STAGGER_MS = 110;
 
-export function Location() {
+export function Location({ items }: { items: BranchItem[] }) {
   const sectionRef = useRef<HTMLElement>(null);
   const [inView, setInView] = useState(false);
-  const [items, setItems] = useState<BranchItem[]>(seedBranches);
-  const [activeId, setActiveId] = useState(seedBranches[0]?.id ?? "");
-
-  useEffect(() => {
-    let alive = true;
-    const load = async () => {
-      const next = await fetchBranches();
-      if (alive) setItems(next);
-    };
-    load();
-    if (BRANCHES_POLL_MS > 0) {
-      const id = setInterval(load, BRANCHES_POLL_MS);
-      return () => {
-        alive = false;
-        clearInterval(id);
-      };
-    }
-    return () => {
-      alive = false;
-    };
-  }, []);
+  const [activeId, setActiveId] = useState(items[0]?.id ?? "");
 
   useEffect(() => {
     const el = sectionRef.current;

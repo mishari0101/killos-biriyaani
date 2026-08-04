@@ -12,7 +12,8 @@ import {
 import { DayPicker } from "react-day-picker";
 import {
   contact,
-  contactInfo,
+  enquiryForm,
+  enquirySuccess,
   formLabels,
   infoCard,
   occasionOptions,
@@ -20,20 +21,27 @@ import {
   success,
 } from "@/lib/content/contact";
 import {
+  submitContactMessage,
   submitReservation,
+  toContactPayload,
   toReservationPayload,
+  validateContactFields,
   validateReservationFields,
   waHref,
+  type EnquiryFieldKey,
+  type EnquiryFormValues,
   type ReservationFieldKey,
   type ReservationFormValues,
 } from "@/lib/contact";
 import { directionsUrl, telHref } from "@/lib/branches";
+import type { BranchContactInfo } from "@/lib/branches/types";
 import {
   ArrowRightIcon,
   CalendarIcon,
   CheckIcon,
   ChevronDownIcon,
   ClockIcon,
+  MailIcon,
   MapPinIcon,
   PhoneIcon,
   WhatsAppIcon,
@@ -226,8 +234,9 @@ function Field({
   type = "text",
   autoComplete,
   inputMode,
+  rows = 2,
 }: {
-  id: ReservationFieldKey;
+  id: string;
   label: string;
   value: string;
   onChange: (value: string) => void;
@@ -237,7 +246,8 @@ function Field({
   multiline?: boolean;
   type?: string;
   autoComplete?: string;
-  inputMode?: "text" | "tel" | "numeric";
+  inputMode?: "text" | "tel" | "numeric" | "email";
+  rows?: number;
 }) {
   const [focused, setFocused] = useState(false);
   const floated = focused || value.length > 0;
@@ -264,7 +274,7 @@ function Field({
     <div className="space-y-1">
       <div className="relative">
         {multiline ? (
-          <textarea {...common} rows={2} placeholder=" " />
+          <textarea {...common} rows={rows} placeholder=" " />
         ) : (
           <input
             {...common}
@@ -818,7 +828,21 @@ function OpenStatusBadge({ open }: { open: boolean }) {
 
 /* --------------------------- Success card --------------------------- */
 
-function SuccessCard({ onReset }: { onReset: () => void }) {
+function SuccessCard({
+  info,
+  title,
+  numberLabel,
+  message,
+  number,
+  onReset,
+}: {
+  info: BranchContactInfo;
+  title: string;
+  numberLabel: string;
+  message: string;
+  number?: string | null;
+  onReset: () => void;
+}) {
   return (
     <div
       role="status"
@@ -832,21 +856,31 @@ function SuccessCard({ onReset }: { onReset: () => void }) {
         className="mt-7 text-[clamp(1.6rem,3vw,2.1rem)] font-bold leading-tight text-[var(--fg)]"
         style={{ fontFamily: "var(--font-serif)" }}
       >
-        {success.title}
+        {title}
       </h3>
+      {number && (
+        <div className="mt-6 rounded-2xl border border-[var(--accent-soft)] bg-[var(--accent-soft)] px-8 py-4">
+          <p className="text-[0.66rem] font-light uppercase tracking-[0.3em] text-[var(--accent)]">
+            {numberLabel}
+          </p>
+          <p className="mt-1 font-serif text-[1.5rem] font-bold tracking-[0.12em] text-[var(--fg)]">
+            {number}
+          </p>
+        </div>
+      )}
       <p className="mx-auto mt-4 max-w-[38ch] text-[0.95rem] font-normal leading-[1.8] text-[var(--fg-soft)]">
-        {success.message}
+        {message}
       </p>
       <div className="mt-9 grid w-full max-w-sm gap-3">
         <a
-          href={telHref(contactInfo.phones[0])}
+          href={telHref(info.phones[0])}
           className="btn btn-brand btn-lg w-full"
         >
           <PhoneIcon size={15} />
           Call Now
         </a>
         <a
-          href={waHref(contactInfo.phones[0], contactInfo.whatsappMessage)}
+          href={waHref(info.whatsapp || info.phones[0], info.whatsappMessage)}
           target="_blank"
           rel="noopener noreferrer"
           className="btn btn-wa btn-lg w-full"
@@ -862,14 +896,214 @@ function SuccessCard({ onReset }: { onReset: () => void }) {
   );
 }
 
+/* --------------------------- Enquiry form --------------------------- */
+
+const ENQUIRY_EMPTY: EnquiryFormValues = {
+  name: "",
+  phone: "",
+  email: "",
+  subject: "",
+  message: "",
+};
+
+const ENQUIRY_FIELD_ORDER: EnquiryFieldKey[] = [
+  "name",
+  "phone",
+  "email",
+  "subject",
+  "message",
+];
+
+type EnquiryStatus = "idle" | "submitting" | "success" | "error";
+
+function validateEnquiryOne(key: EnquiryFieldKey, values: EnquiryFormValues): string {
+  return validateContactFields(values)[key] ?? "";
+}
+
+function EnquiryForm({
+  formRef,
+  submitBtnRef,
+  onStatusChange,
+  onSuccess,
+}: {
+  formRef: React.RefObject<HTMLFormElement | null>;
+  submitBtnRef: React.RefObject<HTMLButtonElement | null>;
+  onStatusChange: (status: EnquiryStatus) => void;
+  onSuccess: (number: string) => void;
+}) {
+  const [values, setValues] = useState<EnquiryFormValues>(ENQUIRY_EMPTY);
+  const [errors, setErrors] = useState<Partial<Record<EnquiryFieldKey, string>>>({});
+  const [touched, setTouched] = useState<Partial<Record<EnquiryFieldKey, boolean>>>({});
+  const [status, setStatus] = useState<EnquiryStatus>("idle");
+  const [submitError, setSubmitError] = useState("");
+
+  useEffect(() => {
+    onStatusChange(status);
+  }, [status, onStatusChange]);
+
+  const setField = (key: EnquiryFieldKey, value: string) => {
+    const next = { ...values, [key]: value };
+    setValues(next);
+    if (touched[key]) {
+      setErrors((prev) => ({ ...prev, [key]: validateEnquiryOne(key, next) }));
+    }
+  };
+
+  const blurField = (key: EnquiryFieldKey) => {
+    setTouched((prev) => ({ ...prev, [key]: true }));
+    setErrors((prev) => ({ ...prev, [key]: validateEnquiryOne(key, values) }));
+  };
+
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (status === "submitting") return;
+
+    const nextTouched = {
+      name: true,
+      phone: true,
+      email: true,
+      subject: true,
+      message: true,
+    };
+    const nextErrors = validateContactFields(values);
+    setTouched(nextTouched);
+    setErrors(nextErrors);
+
+    const first = ENQUIRY_FIELD_ORDER.find((key) => nextErrors[key]);
+    if (first) {
+      document.getElementById(first)?.focus();
+      return;
+    }
+
+    setStatus("submitting");
+    setSubmitError("");
+    const result = await submitContactMessage(toContactPayload(values));
+    if (result.ok) {
+      setValues(ENQUIRY_EMPTY);
+      setErrors({});
+      setTouched({});
+      setStatus("success");
+      onSuccess(result.number ?? "");
+    } else {
+      setStatus("error");
+      setSubmitError(result.error ?? "Something went wrong. Please try again.");
+      formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
+
+  return (
+    <form
+      ref={formRef}
+      onSubmit={handleSubmit}
+      noValidate
+      aria-busy={status === "submitting"}
+    >
+      <div className="space-y-4 sm:space-y-5">
+        <div className="grid min-[360px]:grid-cols-2 gap-x-3 gap-y-4">
+          <Field
+            id="name"
+            label={enquiryForm.name}
+            value={values.name}
+            onChange={(v) => setField("name", v)}
+            onBlur={() => blurField("name")}
+            error={touched.name ? errors.name : undefined}
+            required
+            autoComplete="name"
+          />
+          <Field
+            id="phone"
+            label={enquiryForm.phone}
+            value={values.phone}
+            onChange={(v) => setField("phone", v)}
+            onBlur={() => blurField("phone")}
+            error={touched.phone ? errors.phone : undefined}
+            required
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+          />
+        </div>
+        <Field
+          id="email"
+          label={enquiryForm.email}
+          value={values.email}
+          onChange={(v) => setField("email", v)}
+          onBlur={() => blurField("email")}
+          error={touched.email ? errors.email : undefined}
+          type="email"
+          inputMode="email"
+          autoComplete="email"
+        />
+        <Field
+          id="subject"
+          label={enquiryForm.subject}
+          value={values.subject}
+          onChange={(v) => setField("subject", v)}
+          onBlur={() => blurField("subject")}
+          error={touched.subject ? errors.subject : undefined}
+          required
+        />
+        <Field
+          id="message"
+          label={enquiryForm.message}
+          value={values.message}
+          onChange={(v) => setField("message", v)}
+          onBlur={() => blurField("message")}
+          error={touched.message ? errors.message : undefined}
+          required
+          multiline
+          rows={5}
+        />
+      </div>
+
+      {status === "error" && (
+        <div
+          role="alert"
+          className="mt-6 rounded-2xl border border-[rgba(192,57,43,0.25)] bg-[rgba(192,57,43,0.08)] px-4 py-3 text-[0.82rem] font-medium text-[var(--brand-cta)]"
+        >
+          {submitError}
+        </div>
+      )}
+
+      <button
+        ref={submitBtnRef}
+        type="submit"
+        disabled={status === "submitting"}
+        className="btn btn-brand btn-lg mt-6 w-full disabled:cursor-not-allowed disabled:opacity-75"
+      >
+        {status === "submitting" ? (
+          <span className="flex items-center gap-3">
+            <span
+              className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white"
+              aria-hidden="true"
+            />
+            {enquiryForm.loading}
+          </span>
+        ) : (
+          <span className="flex items-center gap-3">
+            <MailIcon size={16} />
+            {enquiryForm.idle}
+          </span>
+        )}
+      </button>
+      <p className="mt-4 text-center text-[0.7rem] font-normal tracking-[0.02em] text-[var(--fg-muted)]">
+        {enquiryForm.footnote}
+      </p>
+    </form>
+  );
+}
+
 /* ------------------------------- Section ------------------------------- */
 
-export function Contact() {
+export function Contact({ info }: { info: BranchContactInfo }) {
   const sectionRef = useRef<HTMLElement>(null);
   const formWrapRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const submitBtnRef = useRef<HTMLButtonElement>(null);
+  const enqFormRef = useRef<HTMLFormElement>(null);
+  const enqSubmitBtnRef = useRef<HTMLButtonElement>(null);
 
+  const [mode, setMode] = useState<"reservation" | "message">("reservation");
   const [inView, setInView] = useState(false);
   const [formInView, setFormInView] = useState(false);
   const [submitInView, setSubmitInView] = useState(false);
@@ -878,12 +1112,15 @@ export function Contact() {
   const [touched, setTouched] = useState<Partial<Record<ReservationFieldKey, boolean>>>({});
   const [status, setStatus] = useState<Status>("idle");
   const [submitError, setSubmitError] = useState("");
+  const [reservationNumber, setReservationNumber] = useState<string | null>(null);
+  const [enqStatus, setEnqStatus] = useState<EnquiryStatus>("idle");
+  const [enqNumber, setEnqNumber] = useState<string | null>(null);
 
   const hour = useCurrentHour();
   const isOpen =
     hour === null
       ? null
-      : hour >= contactInfo.openFromHour && hour < contactInfo.openToHour;
+      : hour >= info.openFromHour && hour < info.openToHour;
 
   useEffect(() => {
     const el = sectionRef.current;
@@ -913,7 +1150,8 @@ export function Contact() {
   }, []);
 
   useEffect(() => {
-    const el = submitBtnRef.current;
+    const el =
+      mode === "message" ? enqSubmitBtnRef.current : submitBtnRef.current;
     if (!el) return;
     const io = new IntersectionObserver(
       ([entry]) => setSubmitInView(entry.isIntersecting),
@@ -921,13 +1159,15 @@ export function Contact() {
     );
     io.observe(el);
     return () => io.disconnect();
-  }, [status]);
+  }, [status, enqStatus, mode]);
 
   const showSticky =
     formInView &&
     !submitInView &&
     status !== "success" &&
-    status !== "submitting";
+    status !== "submitting" &&
+    enqStatus !== "success" &&
+    enqStatus !== "submitting";
 
   const setField = (key: ReservationFieldKey, value: string) => {
     const next = { ...values, [key]: value };
@@ -968,6 +1208,10 @@ export function Contact() {
     setSubmitError("");
     const result = await submitReservation(toReservationPayload(values));
     if (result.ok) {
+      setValues(EMPTY);
+      setErrors({});
+      setTouched({});
+      setReservationNumber(result.number ?? null);
       setStatus("success");
     } else {
       setStatus("error");
@@ -984,6 +1228,20 @@ export function Contact() {
     setTouched({});
     setStatus("idle");
     setSubmitError("");
+    setReservationNumber(null);
+  };
+
+  const handleEnquiryReset = () => {
+    setMode("message");
+    setEnqStatus("idle");
+    setEnqNumber(null);
+  };
+
+  const switchMode = (next: "reservation" | "message") => {
+    setMode(next);
+    setSubmitInView(false);
+    setEnqNumber(null);
+    setEnqStatus("idle");
   };
 
   return (
@@ -1048,7 +1306,7 @@ export function Contact() {
                 index={0}
                 action={
                   <ActionLink
-                    href={telHref(contactInfo.phones[0])}
+                    href={telHref(info.phones[0])}
                     icon={PhoneIcon}
                   >
                     Call Now
@@ -1056,7 +1314,7 @@ export function Contact() {
                 }
               >
                 <div className="space-y-0.5">
-                  {contactInfo.phones.map((phone) => (
+                  {info.phones.map((phone) => (
                     <p key={phone}>{phone}</p>
                   ))}
                 </div>
@@ -1068,10 +1326,7 @@ export function Contact() {
                 index={1}
                 action={
                   <ActionLink
-                    href={waHref(
-                      contactInfo.phones[0],
-                      contactInfo.whatsappMessage
-                    )}
+                    href={waHref(info.whatsapp || info.phones[0], info.whatsappMessage)}
                     icon={WhatsAppIcon}
                     external
                   >
@@ -1089,7 +1344,7 @@ export function Contact() {
                 action={
                   <ActionLink
                     href={directionsUrl({
-                      address: contactInfo.addresses[0],
+                      address: info.addresses[0],
                     } as Parameters<typeof directionsUrl>[0])}
                     icon={MapPinIcon}
                     external
@@ -1099,7 +1354,7 @@ export function Contact() {
                 }
               >
                 <div className="space-y-0.5">
-                  {contactInfo.addresses.map((address) => (
+                  {info.addresses.map((address) => (
                     <p key={address}>{address}</p>
                   ))}
                 </div>
@@ -1116,9 +1371,9 @@ export function Contact() {
                 }
               >
                 <div>
-                  <p>{contactInfo.hoursNote}</p>
+                  <p>{info.hoursNote}</p>
                   <p className="mt-0.5 text-[0.78rem] font-normal text-[var(--fg-muted)]">
-                    {contactInfo.hours}
+                    {info.hours}
                   </p>
                 </div>
               </InfoRow>
@@ -1132,127 +1387,200 @@ export function Contact() {
             className="contact-item scroll-mt-24 rounded-[28px] border border-[var(--contact-card-border)] bg-[var(--contact-card-bg)] p-6 shadow-[var(--contact-card-shadow)] backdrop-blur-[16px] sm:p-8 lg:p-10"
             style={{ "--d": "700ms" } as React.CSSProperties}
           >
-            {status === "success" ? (
-              <SuccessCard onReset={handleReset} />
+            {mode === "message" && enqStatus === "success" ? (
+              <SuccessCard
+                info={info}
+                title={enquirySuccess.title}
+                numberLabel={enquirySuccess.numberLabel}
+                message={enquirySuccess.message}
+                number={enqNumber}
+                onReset={handleEnquiryReset}
+              />
+            ) : status === "success" ? (
+              <SuccessCard
+                info={info}
+                title={success.title}
+                numberLabel={success.numberLabel}
+                message={success.message}
+                number={reservationNumber}
+                onReset={handleReset}
+              />
             ) : (
               <>
-                <div className="mb-7 flex items-center justify-between gap-4">
-                  <h3
-                    className="text-[1.4rem] font-bold leading-snug text-[var(--fg)]"
-                    style={{ fontFamily: "var(--font-serif)" }}
+                <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div
+                    role="tablist"
+                    aria-label="Contact form"
+                    className="flex w-full max-w-[320px] rounded-full border border-[var(--contact-card-border)] bg-[var(--contact-tabs-bg)] p-1"
                   >
-                    Reserve a Table
-                  </h3>
-                  <span className="hidden shrink-0 rounded-full border border-[var(--contact-card-border)] bg-[var(--accent-soft)] px-3.5 py-1.5 text-[0.6rem] font-medium uppercase tracking-[0.2em] text-[var(--accent)] sm:inline-flex">
+                    <button
+                      type="button"
+                      role="tab"
+                      id="tab-book"
+                      aria-selected={mode === "reservation"}
+                      aria-controls="panel-book"
+                      onClick={() => switchMode("reservation")}
+                      className={`flex-1 rounded-full px-4 py-2 text-[0.78rem] font-semibold tracking-[0.03em] transition-colors duration-200 ${
+                        mode === "reservation"
+                          ? "bg-[var(--contact-tabs-active-bg)] text-[var(--contact-tabs-active-fg)] shadow-[var(--contact-tabs-shadow)]"
+                          : "text-[var(--fg-muted)] hover:text-[var(--fg)]"
+                      }`}
+                    >
+                      <span className="flex items-center justify-center gap-2">
+                        <CalendarIcon size={14} />
+                        Reserve a Table
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      role="tab"
+                      id="tab-message"
+                      aria-selected={mode === "message"}
+                      aria-controls="panel-message"
+                      onClick={() => switchMode("message")}
+                      className={`flex-1 rounded-full px-4 py-2 text-[0.78rem] font-semibold tracking-[0.03em] transition-colors duration-200 ${
+                        mode === "message"
+                          ? "bg-[var(--contact-tabs-active-bg)] text-[var(--contact-tabs-active-fg)] shadow-[var(--contact-tabs-shadow)]"
+                          : "text-[var(--fg-muted)] hover:text-[var(--fg)]"
+                      }`}
+                    >
+                      <span className="flex items-center justify-center gap-2">
+                        <MailIcon size={14} />
+                        Send a Message
+                      </span>
+                    </button>
+                  </div>
+                  <span className="hidden shrink-0 self-start rounded-full border border-[var(--contact-card-border)] bg-[var(--accent-soft)] px-3.5 py-1.5 text-[0.6rem] font-medium uppercase tracking-[0.2em] text-[var(--accent)] sm:inline-flex">
                     Fast &amp; Easy
                   </span>
                 </div>
 
-                <form
-                  ref={formRef}
-                  onSubmit={handleSubmit}
-                  noValidate
-                  aria-busy={status === "submitting"}
-                >
-                  <div className="space-y-4 sm:space-y-5">
-                    <Field
-                      id="name"
-                      label={formLabels.name}
-                      value={values.name}
-                      onChange={(v) => setField("name", v)}
-                      onBlur={() => blurField("name")}
-                      error={touched.name ? errors.name : undefined}
-                      required
-                      autoComplete="name"
-                    />
-                    <Field
-                      id="phone"
-                      label={formLabels.phone}
-                      value={values.phone}
-                      onChange={(v) => setField("phone", v)}
-                      onBlur={() => blurField("phone")}
-                      error={touched.phone ? errors.phone : undefined}
-                      required
-                      type="tel"
-                      inputMode="tel"
-                      autoComplete="tel"
-                    />
-                    <div className="grid min-[360px]:grid-cols-2 gap-x-3 gap-y-4">
-                      <GuestsField
-                        value={values.guests}
-                        onChange={(v) => setField("guests", v)}
-                        onBlur={() => blurField("guests")}
-                        error={touched.guests ? errors.guests : undefined}
-                      />
-                      <DateField
-                        label={formLabels.date}
-                        value={values.date}
-                        onChange={(v) => setField("date", v)}
-                        onBlur={() => blurField("date")}
-                        error={touched.date ? errors.date : undefined}
-                        required
-                      />
-                    </div>
-                    <div className="grid min-[360px]:grid-cols-2 gap-x-3 gap-y-4">
-                      <TimeField
-                        label={formLabels.time}
-                        value={values.time}
-                        onChange={(v) => setField("time", v)}
-                        onBlur={() => blurField("time")}
-                        error={touched.time ? errors.time : undefined}
-                        required
-                      />
-                      <OccasionField
-                        value={values.occasion}
-                        onChange={(v) => setField("occasion", v)}
-                        onBlur={() => blurField("occasion")}
-                      />
-                    </div>
-                    <Field
-                      id="request"
-                      label={formLabels.request}
-                      value={values.request}
-                      onChange={(v) => setField("request", v)}
-                      onBlur={() => blurField("request")}
-                      error={touched.request ? errors.request : undefined}
-                      multiline
+                {mode === "message" ? (
+                  <div
+                    role="tabpanel"
+                    id="panel-message"
+                    aria-labelledby="tab-message"
+                  >
+                    <EnquiryForm
+                      formRef={enqFormRef}
+                      submitBtnRef={enqSubmitBtnRef}
+                      onStatusChange={setEnqStatus}
+                      onSuccess={(n) => setEnqNumber(n)}
                     />
                   </div>
-
-                  {status === "error" && (
-                    <div
-                      role="alert"
-                      className="mt-6 rounded-2xl border border-[rgba(192,57,43,0.25)] bg-[rgba(192,57,43,0.08)] px-4 py-3 text-[0.82rem] font-medium text-[var(--brand-cta)]"
-                    >
-                      {submitError}
-                    </div>
-                  )}
-
-                  <button
-                    ref={submitBtnRef}
-                    type="submit"
-                    disabled={status === "submitting"}
-                    className="btn btn-brand btn-lg mt-6 w-full disabled:cursor-not-allowed disabled:opacity-75"
+                ) : (
+                  <div
+                    role="tabpanel"
+                    id="panel-book"
+                    aria-labelledby="tab-book"
                   >
-                    {status === "submitting" ? (
-                      <span className="flex items-center gap-3">
-                        <span
-                          className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white"
-                          aria-hidden="true"
+                    <form
+                      ref={formRef}
+                      onSubmit={handleSubmit}
+                      noValidate
+                      aria-busy={status === "submitting"}
+                    >
+                      <div className="space-y-4 sm:space-y-5">
+                        <Field
+                          id="name"
+                          label={formLabels.name}
+                          value={values.name}
+                          onChange={(v) => setField("name", v)}
+                          onBlur={() => blurField("name")}
+                          error={touched.name ? errors.name : undefined}
+                          required
+                          autoComplete="name"
                         />
-                        {submitCta.loading}
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-3">
-                        <CalendarIcon size={16} />
-                        {submitCta.idle}
-                      </span>
-                    )}
-                  </button>
-                  <p className="mt-4 text-center text-[0.7rem] font-normal tracking-[0.02em] text-[var(--fg-muted)]">
-                    {submitCta.footnote}
-                  </p>
-                </form>
+                        <Field
+                          id="phone"
+                          label={formLabels.phone}
+                          value={values.phone}
+                          onChange={(v) => setField("phone", v)}
+                          onBlur={() => blurField("phone")}
+                          error={touched.phone ? errors.phone : undefined}
+                          required
+                          type="tel"
+                          inputMode="tel"
+                          autoComplete="tel"
+                        />
+                        <div className="grid min-[360px]:grid-cols-2 gap-x-3 gap-y-4">
+                          <GuestsField
+                            value={values.guests}
+                            onChange={(v) => setField("guests", v)}
+                            onBlur={() => blurField("guests")}
+                            error={touched.guests ? errors.guests : undefined}
+                          />
+                          <DateField
+                            label={formLabels.date}
+                            value={values.date}
+                            onChange={(v) => setField("date", v)}
+                            onBlur={() => blurField("date")}
+                            error={touched.date ? errors.date : undefined}
+                            required
+                          />
+                        </div>
+                        <div className="grid min-[360px]:grid-cols-2 gap-x-3 gap-y-4">
+                          <TimeField
+                            label={formLabels.time}
+                            value={values.time}
+                            onChange={(v) => setField("time", v)}
+                            onBlur={() => blurField("time")}
+                            error={touched.time ? errors.time : undefined}
+                            required
+                          />
+                          <OccasionField
+                            value={values.occasion}
+                            onChange={(v) => setField("occasion", v)}
+                            onBlur={() => blurField("occasion")}
+                          />
+                        </div>
+                        <Field
+                          id="request"
+                          label={formLabels.request}
+                          value={values.request}
+                          onChange={(v) => setField("request", v)}
+                          onBlur={() => blurField("request")}
+                          error={touched.request ? errors.request : undefined}
+                          multiline
+                        />
+                      </div>
+
+                      {status === "error" && (
+                        <div
+                          role="alert"
+                          className="mt-6 rounded-2xl border border-[rgba(192,57,43,0.25)] bg-[rgba(192,57,43,0.08)] px-4 py-3 text-[0.82rem] font-medium text-[var(--brand-cta)]"
+                        >
+                          {submitError}
+                        </div>
+                      )}
+
+                      <button
+                        ref={submitBtnRef}
+                        type="submit"
+                        disabled={status === "submitting"}
+                        className="btn btn-brand btn-lg mt-6 w-full disabled:cursor-not-allowed disabled:opacity-75"
+                      >
+                        {status === "submitting" ? (
+                          <span className="flex items-center gap-3">
+                            <span
+                              className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white"
+                              aria-hidden="true"
+                            />
+                            {submitCta.loading}
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-3">
+                            <CalendarIcon size={16} />
+                            {submitCta.idle}
+                          </span>
+                        )}
+                      </button>
+                      <p className="mt-4 text-center text-[0.7rem] font-normal tracking-[0.02em] text-[var(--fg-muted)]">
+                        {submitCta.footnote}
+                      </p>
+                    </form>
+                  </div>
+                )}
               </>
             )}
           </div>
@@ -1270,11 +1598,26 @@ export function Contact() {
         <div className="mx-auto max-w-[1400px] px-4">
           <button
             type="button"
-            onClick={() => formRef.current?.requestSubmit()}
+            onClick={() => {
+              if (mode === "message") {
+                enqFormRef.current?.requestSubmit();
+              } else {
+                formRef.current?.requestSubmit();
+              }
+            }}
             className="btn btn-brand btn-lg w-full"
           >
-            <CalendarIcon size={16} />
-            Reserve Table
+            {mode === "message" ? (
+              <>
+                <MailIcon size={16} />
+                Send Message
+              </>
+            ) : (
+              <>
+                <CalendarIcon size={16} />
+                Reserve Table
+              </>
+            )}
           </button>
         </div>
       </div>

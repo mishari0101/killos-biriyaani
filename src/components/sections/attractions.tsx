@@ -2,16 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import {
-  attractions,
-  seedAttractions,
-  type AttractionItem,
-} from "@/lib/content/attractions";
-import {
-  fetchAttractions,
-  ATTRACTIONS_POLL_MS,
-  mapsUrl,
-} from "@/lib/attractions";
+import { attractions } from "@/lib/content/attractions";
 import {
   ArrowRightIcon,
   ImageIcon,
@@ -21,6 +12,18 @@ import {
 
 const STAGGER_MS = 90;
 const MAX_STAGGER = 8;
+
+export interface SectionAttractionItem {
+  id: string;
+  name: string;
+  description: string;
+  rating: number;
+  travelTime: string;
+  image: string;
+  mapUrl: string;
+  featured?: boolean;
+  imagePosition?: string;
+}
 
 function RatingChip({ rating }: { rating: number }) {
   const filled = Math.round(rating);
@@ -43,7 +46,7 @@ function RatingChip({ rating }: { rating: number }) {
   );
 }
 
-function AttractionCard({ item, sizes }: { item: AttractionItem; sizes: string }) {
+function AttractionCard({ item, sizes }: { item: SectionAttractionItem; sizes: string }) {
   const [expanded, setExpanded] = useState(false);
   const cardRef = useRef<HTMLElement>(null);
 
@@ -114,7 +117,7 @@ function AttractionCard({ item, sizes }: { item: AttractionItem; sizes: string }
             {item.name}
           </h3>
           <a
-            href={mapsUrl(item)}
+            href={item.mapUrl}
             target="_blank"
             rel="noopener noreferrer"
             onClick={(e) => e.stopPropagation()}
@@ -132,24 +135,9 @@ function AttractionCard({ item, sizes }: { item: AttractionItem; sizes: string }
   );
 }
 
-export function Attractions() {
+export function Attractions({ items }: { items: SectionAttractionItem[] }) {
   const sectionRef = useRef<HTMLElement>(null);
   const [inView, setInView] = useState(false);
-  const [items, setItems] = useState<AttractionItem[]>(seedAttractions);
-
-  useEffect(() => {
-    let active = true;
-    const load = async () => {
-      const data = await fetchAttractions();
-      if (active) setItems(data);
-    };
-    load();
-    const id = window.setInterval(load, ATTRACTIONS_POLL_MS);
-    return () => {
-      active = false;
-      window.clearInterval(id);
-    };
-  }, []);
 
   useEffect(() => {
     const node = sectionRef.current;

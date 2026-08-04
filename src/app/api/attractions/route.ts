@@ -1,75 +1,92 @@
-import { seedAttractions, type AttractionItem } from "@/lib/content/attractions";
+import { getSession } from "@/lib/auth/session";
+import {
+  createAttraction,
+  listAttractions,
+  toAttractionInput,
+} from "@/lib/attractions/service";
+import { validateAttraction } from "@/lib/attractions/validate";
 
 export const dynamic = "force-dynamic";
 
 const NO_STORE = { "Cache-Control": "no-store" };
 
-function toAttraction(raw: unknown): AttractionItem | null {
-  if (!raw || typeof raw !== "object") return null;
-  const r = raw as Record<string, unknown>;
-  const name = typeof r.name === "string" ? r.name.trim() : "";
-  const description = typeof r.description === "string" ? r.description.trim() : "";
-  if (!name) return null;
-  return {
-    id:
-      typeof r.id === "string" && r.id
-        ? r.id
-        : `attraction-${name.toLowerCase().replace(/\s+/g, "-")}`,
-    name,
-    description,
-    rating:
-      typeof r.rating === "number" && Number.isFinite(r.rating)
-        ? Math.min(5, Math.max(0, Math.round(r.rating * 10) / 10))
-        : 4.5,
-    travelTime:
-      typeof r.travelTime === "string" && r.travelTime.trim()
-        ? r.travelTime.trim()
-        : "Nearby",
-    image: typeof r.image === "string" && r.image ? r.image : "",
-    mapUrl: typeof r.mapUrl === "string" && r.mapUrl ? r.mapUrl : "",
-    featured: r.featured === true,
-    imagePosition:
-      typeof r.imagePosition === "string" && r.imagePosition.trim()
-        ? r.imagePosition.trim()
-        : undefined,
-  };
+function asString(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed || undefined;
 }
 
-function normalize(payload: unknown): AttractionItem[] {
-  let list: unknown;
-  if (Array.isArray(payload)) {
-    list = payload;
-  } else if (payload && typeof payload === "object") {
-    const obj = payload as Record<string, unknown>;
-    list = obj.attractions ?? obj.data ?? obj.items ?? [];
-  }
-  if (!Array.isArray(list)) return [];
-  return list
-    .map(toAttraction)
-    .filter((a): a is AttractionItem => a !== null);
+function asEnum<T extends string>(value: unknown, allowed: readonly T[]): T | undefined {
+  return typeof value === "string" && (allowed as readonly string[]).includes(value)
+    ? (value as T)
+    : undefined;
 }
 
-export async function GET() {
-  const url = process.env.ATTRACTIONS_API_URL;
-
-  if (!url) {
-    return Response.json(seedAttractions, { headers: NO_STORE });
+export async function GET(request: Request) {
+  const session = await getSession();
+  if (!session) {
+    return Response.json({ ok: false, error: "Unauthorized." }, { status: 401, headers: NO_STORE });
   }
 
   try {
-    const token = process.env.ATTRACTIONS_API_TOKEN;
-    const res = await fetch(url, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-      signal: AbortSignal.timeout(5000),
-      cache: "no-store",
-    });
-    if (!res.ok) throw new Error(`Attractions API responded ${res.status}`);
-    const items = normalize(await res.json());
-    return Response.json(items.length ? items : seedAttractions, {
-      headers: NO_STORE,
-    });
+    const url = new URL(request.url);
+    const search = asString(url.searchParams.get("search"));
+    const visibility = asEnum(url.searchParams.get("visibility"), ["visible", "hidden"]);
+    const featured = asEnum(url.searchParams.get("featured"), ["featured", "regular"]);
+    const page = Math.max(1, parseInt(url.searchParams.get("page") ?? "1", 10) || 1);
+    const pageSize = Math.min(50, Math.max(1, parseInt(url.searchParams.get("pageSize") ?? "24", 10) || 24));
+
+    const result = await listAttractions({ search, visibility, featured, page, pageSize });
+    return Response.json({ ok: true, ...result }, { status: 200, headers: NO_STORE });
   } catch (error) {
-    console.error("[api/attractions]", error);
-    return Response.json(seedAttractions, { headers: NO_STORE });
+    console.error("GET /api/attractions failed:", error);
+    return Response.json(
+      { ok: false, error: "Could not load the attractions." },
+      { status: 500, headers: NO_STORE }
+    );
+  }
+}
+
+export async function POST(request: Request) {
+  const session = await getSession();
+  if (!session) {
+    return Response.json({ ok: false, error: "Unauthorized." }, { status: 401, headers: NO_STORE });
+  }
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return Response.json(
+      { ok: false, error: "Invalid request body." },
+      { status: 400, headers: NO_STORE }
+    );
+  }
+
+  if (!body || typeof body !== "object") {
+    return Response.json(
+      { ok: false, error: "Attraction payload must be a JSON object." },
+      { status: 400, headers: NO_STORE }
+    );
+  }
+
+  const data = toAttractionInput(body as Record<string, unknown>);
+  const errors = validateAttraction(data);
+  if (Object.keys(errors).length > 0) {
+    return Response.json(
+      { ok: false, error: "Some fields are invalid.", errors },
+      { status: 422, headers: NO_STORE }
+    );
+  }
+
+  try {
+    const item = await createAttraction(data);
+    return Response.json({ ok: true, item }, { status: 201, headers: NO_STORE });
+  } catch (error) {
+    console.error("POST /api/attractions failed:", error);
+    return Response.json(
+      { ok: false, error: "Could not create the attraction." },
+      { status: 500, headers: NO_STORE }
+    );
   }
 }

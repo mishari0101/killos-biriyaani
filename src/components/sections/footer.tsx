@@ -29,6 +29,14 @@ const SOCIAL_ICONS: Record<string, React.ComponentType<{ size?: number }>> = {
   whatsapp: WhatsAppIcon,
 };
 
+export interface BranchFooterContact {
+  phones: string[];
+  hours: string;
+  hoursNote: string;
+  locations: string[];
+  whatsappHref: string;
+}
+
 function FooterColumn({
   title,
   index,
@@ -51,7 +59,7 @@ function FooterColumn({
   );
 }
 
-export function Footer() {
+export function Footer({ branchContact }: { branchContact?: BranchFooterContact }) {
   const footerRef = useRef<HTMLElement>(null);
   const [inView, setInView] = useState(false);
   const [data, setData] = useState<FooterContent>(seedFooter);
@@ -103,9 +111,24 @@ export function Footer() {
     if (valid) setEmail("");
   };
 
-  const socials = data.socials.filter((s) => s.enabled);
+  const socials = data.socials
+    .filter((s) => s.enabled)
+    .map((s) =>
+      s.id === "whatsapp" && branchContact?.whatsappHref
+        ? { ...s, href: branchContact.whatsappHref }
+        : s
+    );
   const quickLinks = data.quickLinks.filter((l) => l.enabled);
   const policyLinks = data.policyLinks.filter((l) => l.enabled);
+
+  const phones =
+    branchContact && branchContact.phones.length ? branchContact.phones : data.phones;
+  const hours = branchContact?.hours ?? data.hours;
+  const hoursNote = branchContact?.hoursNote ?? data.hoursNote;
+  const locations =
+    branchContact && branchContact.locations.length
+      ? branchContact.locations
+      : data.locations;
 
   return (
     <footer
@@ -215,7 +238,7 @@ export function Footer() {
                   Phone
                 </p>
                 <ul className="mt-3 space-y-2">
-                  {data.phones.map((phone) => (
+                  {phones.map((phone) => (
                     <li key={phone}>
                       <a
                         href={telHref(phone)}
@@ -237,10 +260,10 @@ export function Footer() {
                   <ClockIcon size={14} className="mt-1 shrink-0 text-[var(--accent)]" />
                   <span>
                     <span className="font-medium text-[var(--fg)]">
-                      {data.hoursNote}
+                      {hoursNote}
                     </span>
                     <span className="mx-1.5 text-[var(--fg-muted)]">·</span>
-                    {data.hours}
+                    {hours}
                   </span>
                 </p>
               </div>
@@ -250,7 +273,7 @@ export function Footer() {
                   Locations
                 </p>
                 <ul className="mt-3 space-y-2">
-                  {data.locations.map((location) => (
+                  {locations.map((location) => (
                     <li
                       key={location}
                       className="flex items-start gap-2.5 text-[0.9rem] text-[var(--fg-soft)]"
