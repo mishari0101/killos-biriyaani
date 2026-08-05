@@ -1,5 +1,3 @@
-import type { ContactMessageModel } from "@/generated/prisma/models/ContactMessage";
-
 export const CONTACT_MESSAGE_STATUSES = [
   "NEW",
   "READ",
@@ -32,8 +30,23 @@ export interface ContactMessageData {
   updatedAt: string;
 }
 
-/** Raw row as stored by Prisma. */
-export type ContactMessageRow = ContactMessageModel;
+/** Raw row as stored in Firestore. */
+export interface ContactMessageRow {
+  id: number;
+  number: string;
+  name: string;
+  phone: string;
+  email: string;
+  subject: string;
+  message: string;
+  branch: string;
+  status: string;
+  notes: string;
+  repliedAt: Date | null;
+  closedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 export type ContactMessageStatusFilter = "all" | ContactMessageStatus;
 export type ContactMessagePeriodFilter = "all" | "today" | "week" | "month";

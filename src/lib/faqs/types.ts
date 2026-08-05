@@ -1,5 +1,3 @@
-import type { FaqModel } from "@/generated/prisma/models/Faq";
-
 /** Wire shape returned by the API and used by the FAQ manager. */
 export interface FaqData {
   id: number;
@@ -13,8 +11,18 @@ export interface FaqData {
   updatedAt: string;
 }
 
-/** Raw row as stored by Prisma. */
-export type FaqRow = FaqModel;
+/** Raw row as stored in Firestore. */
+export interface FaqRow {
+  id: number;
+  question: string;
+  answer: string;
+  category: string;
+  featured: boolean;
+  visible: boolean;
+  displayOrder: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 export interface FaqFilters {
   search?: string;

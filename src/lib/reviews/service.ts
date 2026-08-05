@@ -1,8 +1,7 @@
 import "server-only";
 
-import { Prisma } from "@/generated/prisma/client";
-import { db } from "@/lib/db";
 import { imageStorage } from "@/lib/uploads/storage";
+import { findAll, findById, createDoc, updateDoc, deleteDoc, updateMany, nextId } from "@/lib/firebase/repo";
 import type { ReviewData, ReviewFilters, ReviewListResult, ReviewRow } from "./types";
 import type { ReviewInput } from "./validate";
 
@@ -15,7 +14,7 @@ function toBoolean(value: unknown): boolean {
   return value === true;
 }
 
-/** Map a Prisma row to the API shape. */
+/** Map a stored row to the API shape. */
 export function rowToReview(row: ReviewRow): ReviewData {
   return {
     id: row.id,
@@ -37,7 +36,7 @@ export function toReviewInput(raw: Record<string, unknown>): ReviewInput {
   return {
     name: typeof raw.name === "string" ? raw.name : "",
     imageUrl: typeof raw.imageUrl === "string" ? raw.imageUrl : "",
-    rating: Math.round(toNumber(raw.rating)),
+    rating: Math.max(1, Math.min(5, Math.round(toNumber(raw.rating)))),
     text: typeof raw.text === "string" ? raw.text : "",
     reviewDate: typeof raw.reviewDate === "string" ? raw.reviewDate : "",
     displayOrder: Math.trunc(toNumber(raw.displayOrder)),
@@ -46,53 +45,36 @@ export function toReviewInput(raw: Record<string, unknown>): ReviewInput {
   };
 }
 
-const PUBLIC_ORDER: Prisma.ReviewOrderByWithRelationInput[] = [
-  { featured: "desc" },
-  { displayOrder: "asc" },
-  { id: "asc" },
-];
+function comparePublic(a: ReviewRow, b: ReviewRow): number {
+  return Number(b.featured) - Number(a.featured) || a.displayOrder - b.displayOrder || a.id - b.id;
+}
+
+function matchesFilters(row: ReviewRow, filters: ReviewFilters): boolean {
+  const search = filters.search?.trim().toLowerCase();
+  if (search) {
+    const haystack = `${row.name} ${row.text}`.toLowerCase();
+    if (!haystack.includes(search)) return false;
+  }
+  if (filters.visibility === "visible" && !row.visible) return false;
+  if (filters.visibility === "hidden" && row.visible) return false;
+  if (filters.featured === "featured" && !row.featured) return false;
+  if (filters.featured === "regular" && row.featured) return false;
+  if (filters.rating && row.rating !== filters.rating) return false;
+  return true;
+}
 
 /** List reviews with search, visibility/featured/rating filters and pagination. */
 export async function listReviews(filters: ReviewFilters = {}): Promise<ReviewListResult> {
   const page = Math.max(1, filters.page ?? 1);
   const pageSize = Math.min(50, Math.max(1, filters.pageSize ?? 24));
 
-  const where: Prisma.ReviewWhereInput = {};
-  if (filters.search) {
-    const search = filters.search.trim();
-    if (search) {
-      where.OR = [
-        { name: { contains: search } },
-        { text: { contains: search } },
-      ];
-    }
-  }
-  if (filters.visibility === "visible") {
-    where.visible = true;
-  } else if (filters.visibility === "hidden") {
-    where.visible = false;
-  }
-  if (filters.featured === "featured") {
-    where.featured = true;
-  } else if (filters.featured === "regular") {
-    where.featured = false;
-  }
-  if (filters.rating) {
-    where.rating = filters.rating;
-  }
+  const rows = await findAll<ReviewRow>("reviews");
+  const filtered = rows.filter((row) => matchesFilters(row, filters));
+  filtered.sort(comparePublic);
 
-  const [rows, total] = await Promise.all([
-    db.review.findMany({
-      where,
-      orderBy: PUBLIC_ORDER,
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-    }),
-    db.review.count({ where }),
-  ]);
-
+  const total = filtered.length;
   return {
-    items: rows.map(rowToReview),
+    items: filtered.slice((page - 1) * pageSize, page * pageSize).map(rowToReview),
     total,
     page,
     pageSize,
@@ -102,23 +84,22 @@ export async function listReviews(filters: ReviewFilters = {}): Promise<ReviewLi
 
 /** Fetch a single review by id. */
 export async function getReview(id: number): Promise<ReviewData | null> {
-  const row = await db.review.findUnique({ where: { id } });
+  const row = await findById<ReviewRow>("reviews", id);
   return row ? rowToReview(row) : null;
 }
 
-/** Create a review. New reviews default to a high display order (appear last). */
+/** Create a review. */
 export async function createReview(data: ReviewInput): Promise<ReviewData> {
-  const row = await db.review.create({
-    data: {
-      name: data.name.trim(),
-      imageUrl: data.imageUrl.trim(),
-      rating: data.rating,
-      text: data.text.trim(),
-      reviewDate: data.reviewDate.trim(),
-      displayOrder: data.displayOrder,
-      featured: data.featured,
-      visible: data.visible,
-    },
+  const id = await nextId("reviews");
+  const row = await createDoc<ReviewRow>("reviews", id, {
+    name: data.name.trim(),
+    imageUrl: data.imageUrl.trim(),
+    rating: data.rating,
+    text: data.text.trim(),
+    reviewDate: data.reviewDate.trim(),
+    displayOrder: data.displayOrder,
+    featured: data.featured,
+    visible: data.visible,
   });
   return rowToReview(row);
 }
@@ -138,45 +119,39 @@ async function removeManagedImage(url: string | null): Promise<void> {
   if (key) await imageStorage.delete(key);
 }
 
-/** Update a review, deleting any replaced managed image. */
+/** Update a review. */
 export async function updateReview(id: number, data: ReviewInput): Promise<ReviewData> {
-  const previous = await db.review.findUnique({ where: { id } });
+  const previous = await findById<ReviewRow>("reviews", id);
   if (!previous) throw new ReviewNotFoundError(id);
-  const row = await db.review.update({
-    where: { id },
-    data: {
-      name: data.name.trim(),
-      imageUrl: data.imageUrl.trim(),
-      rating: data.rating,
-      text: data.text.trim(),
-      reviewDate: data.reviewDate.trim(),
-      displayOrder: data.displayOrder,
-      featured: data.featured,
-      visible: data.visible,
-    },
+  const row = await updateDoc<ReviewRow>("reviews", id, {
+    name: data.name.trim(),
+    imageUrl: data.imageUrl.trim(),
+    rating: data.rating,
+    text: data.text.trim(),
+    reviewDate: data.reviewDate.trim(),
+    displayOrder: data.displayOrder,
+    featured: data.featured,
+    visible: data.visible,
   });
+  if (!row) throw new ReviewNotFoundError(id);
   if (previous.imageUrl !== row.imageUrl) {
     await removeManagedImage(previous.imageUrl);
   }
   return rowToReview(row);
 }
 
-/** Delete a review and its managed image. */
+/** Delete a review. */
 export async function deleteReview(id: number): Promise<void> {
-  const previous = await db.review.findUnique({ where: { id } });
+  const previous = await findById<ReviewRow>("reviews", id);
   if (!previous) throw new ReviewNotFoundError(id);
-  await db.review.delete({ where: { id } });
+  await deleteDoc("reviews", id);
   await removeManagedImage(previous.imageUrl);
 }
 
 /** Persist a drag-and-drop reorder (displayOrder is compacted to 0..n). */
 export async function reorderReviews(entries: { id: number; displayOrder: number }[]): Promise<void> {
-  await db.$transaction(
-    entries.map((entry) =>
-      db.review.update({
-        where: { id: entry.id },
-        data: { displayOrder: entry.displayOrder },
-      })
-    )
+  await updateMany(
+    "reviews",
+    entries.map((entry) => ({ id: entry.id, data: { displayOrder: entry.displayOrder } }))
   );
 }

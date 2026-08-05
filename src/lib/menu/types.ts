@@ -1,6 +1,3 @@
-import type { MenuItemModel } from "@/generated/prisma/models/MenuItem";
-import type { MenuCategoryModel } from "@/generated/prisma/models/MenuCategory";
-
 /** Wire shape for a category shown in the menu manager. */
 export interface MenuCategoryData {
   id: number;
@@ -11,8 +8,15 @@ export interface MenuCategoryData {
   updatedAt: string;
 }
 
-/** Raw row as stored by Prisma. */
-export type MenuCategoryRow = MenuCategoryModel;
+/** Raw row as stored in Firestore. */
+export interface MenuCategoryRow {
+  id: number;
+  name: string;
+  slug: string;
+  displayOrder: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 /** Wire shape returned by the API and used by the menu manager. */
 export interface MenuItemData {
@@ -29,8 +33,20 @@ export interface MenuItemData {
   updatedAt: string;
 }
 
-/** Raw row as stored by Prisma. */
-export type MenuItemRow = MenuItemModel;
+/** Raw row as stored in Firestore. */
+export interface MenuItemRow {
+  id: number;
+  category: string;
+  name: string;
+  description: string;
+  price: number;
+  imageUrl: string;
+  available: boolean;
+  featured: boolean;
+  displayOrder: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 export type MenuSort = "order" | "name" | "price-asc" | "price-desc" | "newest";
 

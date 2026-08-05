@@ -1,5 +1,3 @@
-import type { ReservationModel } from "@/generated/prisma/models/Reservation";
-
 export const RESERVATION_STATUSES = [
   "PENDING",
   "CONFIRMED",
@@ -36,8 +34,27 @@ export interface ReservationData {
   updatedAt: string;
 }
 
-/** Raw row as stored by Prisma. */
-export type ReservationRow = ReservationModel;
+/** Raw row as stored in Firestore. */
+export interface ReservationRow {
+  id: number;
+  number: string;
+  name: string;
+  phone: string;
+  email: string;
+  branch: string;
+  guests: number;
+  date: string;
+  time: string;
+  occasion: string;
+  request: string;
+  status: string;
+  notes: string;
+  confirmedAt: Date | null;
+  completedAt: Date | null;
+  cancelledAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 export type ReservationStatusFilter = "all" | ReservationStatus;
 export type ReservationPeriodFilter = "all" | "today" | "upcoming" | "past";

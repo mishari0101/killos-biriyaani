@@ -1,7 +1,6 @@
 import "server-only";
 
-import { Prisma } from "@/generated/prisma/client";
-import { db } from "@/lib/db";
+import { findAll, findById, createDoc, updateDoc, deleteDoc, nextId } from "@/lib/firebase/repo";
 import { resolveBranchName } from "@/lib/reservations/service";
 export { resolveBranchName };
 import { normalizePhone, type ContactMessageInput } from "./validate";
@@ -17,7 +16,7 @@ import {
 } from "./types";
 import { DUPLICATE_WINDOW_MINUTES } from "./validate";
 
-/** Map a Prisma row to the API shape. */
+/** Map a stored row to the API shape. */
 export function rowToContactMessage(row: ContactMessageRow): ContactMessageData {
   return {
     id: row.id,
@@ -65,7 +64,7 @@ export class DuplicateContactMessageError extends Error {
   }
 }
 
-/** Create a message, assigning its human-facing number inside a transaction. */
+/** Create a message, assigning its human-facing number from the shared counter. */
 export async function createContactMessage(
   input: ContactMessageInput
 ): Promise<ContactMessageData> {
@@ -73,35 +72,24 @@ export async function createContactMessage(
   const message = input.message.trim();
   const windowStart = new Date(Date.now() - DUPLICATE_WINDOW_MINUTES * 60 * 1000);
 
-  const duplicate = await db.contactMessage.findFirst({
-    where: {
-      phone,
-      message,
-      createdAt: { gte: windowStart },
-    },
-    select: { id: true },
-  });
+  const rows = await findAll<ContactMessageRow>("contactMessages");
+  const duplicate = rows.find(
+    (row) => row.phone === phone && row.message === message && row.createdAt.getTime() >= windowStart.getTime()
+  );
   if (duplicate) throw new DuplicateContactMessageError();
 
-  const row = await db.$transaction(async (tx) => {
-    const created = await tx.contactMessage.create({
-      data: {
-        number: "",
-        name: input.name.trim(),
-        phone,
-        email: input.email.trim(),
-        subject: input.subject.trim(),
-        message,
-        branch: input.branch.trim(),
-        status: "NEW",
-        notes: "",
-      },
-    });
-    const number = `CM-${String(created.id).padStart(4, "0")}`;
-    return tx.contactMessage.update({
-      where: { id: created.id },
-      data: { number },
-    });
+  const id = await nextId("contactMessages");
+  const number = `CM-${String(id).padStart(4, "0")}`;
+  const row = await createDoc<ContactMessageRow>("contactMessages", id, {
+    number,
+    name: input.name.trim(),
+    phone,
+    email: input.email.trim(),
+    subject: input.subject.trim(),
+    message,
+    branch: input.branch.trim(),
+    status: "NEW",
+    notes: "",
   });
 
   return rowToContactMessage(row);
@@ -121,65 +109,60 @@ function startOfLocalWeek(): Date {
   return new Date(today.getFullYear(), today.getMonth(), today.getDate() - sinceMonday);
 }
 
-const SORT_ORDERS: Record<
-  ContactMessageSortKey,
-  Prisma.ContactMessageOrderByWithRelationInput[]
-> = {
-  newest: [{ createdAt: "desc" }, { id: "desc" }],
-  oldest: [{ createdAt: "asc" }, { id: "asc" }],
-  name: [{ name: "asc" }, { id: "asc" }],
-  status: [{ status: "asc" }, { createdAt: "desc" }, { id: "desc" }],
+const SORT_ORDERS: Record<ContactMessageSortKey, (a: ContactMessageRow, b: ContactMessageRow) => number> = {
+  newest: (a, b) => b.createdAt.getTime() - a.createdAt.getTime() || b.id - a.id,
+  oldest: (a, b) => a.createdAt.getTime() - b.createdAt.getTime() || a.id - b.id,
+  name: (a, b) => a.name.localeCompare(b.name) || a.id - b.id,
+  status: (a, b) => a.status.localeCompare(b.status) || b.createdAt.getTime() - a.createdAt.getTime() || b.id - a.id,
 };
 
-function searchClause(search: string): Prisma.ContactMessageWhereInput | undefined {
-  const q = search.trim();
-  if (!q) return undefined;
+/** Normalized search, status and period filters used by the in-memory matcher. */
+export function buildContactMessageWhere(filters: ContactMessageFilters): ContactMessageFilters {
   return {
-    OR: [
-      { name: { contains: q } },
-      { phone: { contains: q } },
-      { email: { contains: q } },
-      { number: { contains: q } },
-      { subject: { contains: q } },
-    ],
+    search: filters.search ?? "",
+    status: filters.status ?? "all",
+    period: filters.period ?? "all",
   };
 }
 
-/** Build the Prisma where clause for search, status and period filters. */
-export function buildContactMessageWhere(
-  filters: ContactMessageFilters
-): Prisma.ContactMessageWhereInput {
-  const where: Prisma.ContactMessageWhereInput = {};
-
-  const search = searchClause(filters.search ?? "");
-  if (search) where.AND = search;
-
-  if (filters.status && filters.status !== "all") {
-    where.status = filters.status;
+function matchesWhere(row: ContactMessageRow, where: ContactMessageFilters): boolean {
+  const search = where.search?.trim().toLowerCase();
+  if (search) {
+    const haystack = `${row.name} ${row.phone} ${row.email} ${row.number} ${row.subject}`.toLowerCase();
+    if (!haystack.includes(search)) return false;
   }
+  if (where.status && where.status !== "all" && row.status !== where.status) return false;
 
-  if (filters.period === "today") {
-    where.createdAt = { gte: startOfLocalDay() };
-  } else if (filters.period === "week") {
-    where.createdAt = { gte: startOfLocalWeek() };
-  } else if (filters.period === "month") {
+  if (where.period === "today") {
+    if (row.createdAt.getTime() < startOfLocalDay().getTime()) return false;
+  } else if (where.period === "week") {
+    if (row.createdAt.getTime() < startOfLocalWeek().getTime()) return false;
+  } else if (where.period === "month") {
     const now = new Date();
-    where.createdAt = { gte: new Date(now.getFullYear(), now.getMonth(), 1) };
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    if (row.createdAt.getTime() < monthStart.getTime()) return false;
   }
-
-  return where;
+  return true;
 }
 
 /** Counts shown on the dashboard cards, always over the full dataset. */
 export async function computeStats(): Promise<ContactMessageStats> {
-  const [newCount, unread, replied, closed, spam, today] = await Promise.all([
-    db.contactMessage.count({ where: { status: "NEW" } }),
-    db.contactMessage.count({ where: { status: { in: ["NEW", "READ"] } } }),
-    db.contactMessage.count({ where: { status: "REPLIED" } }),
-    db.contactMessage.count({ where: { status: "CLOSED" } }),
-    db.contactMessage.count({ where: { status: "SPAM" } }),
-    db.contactMessage.count({ where: { createdAt: { gte: startOfLocalDay() } } }),
-  ]);
+  const rows = await findAll<ContactMessageRow>("contactMessages");
+  const todayStart = startOfLocalDay().getTime();
+  let newCount = 0;
+  let unread = 0;
+  let replied = 0;
+  let closed = 0;
+  let spam = 0;
+  let today = 0;
+  for (const row of rows) {
+    if (row.status === "NEW") newCount += 1;
+    if (row.status === "NEW" || row.status === "READ") unread += 1;
+    if (row.status === "REPLIED") replied += 1;
+    if (row.status === "CLOSED") closed += 1;
+    if (row.status === "SPAM") spam += 1;
+    if (row.createdAt.getTime() >= todayStart) today += 1;
+  }
   return { new: newCount, unread, replied, closed, spam, today };
 }
 
@@ -191,31 +174,25 @@ export async function listContactMessages(
   const pageSize = Math.min(100, Math.max(1, filters.pageSize ?? 24));
 
   const where = buildContactMessageWhere(filters);
-  const orderBy = SORT_ORDERS[filters.sort ?? "newest"];
+  const rows = await findAll<ContactMessageRow>("contactMessages");
+  const filtered = rows.filter((row) => matchesWhere(row, where));
+  filtered.sort(SORT_ORDERS[filters.sort ?? "newest"]);
 
-  const [count, items, stats] = await Promise.all([
-    db.contactMessage.count({ where }),
-    db.contactMessage.findMany({
-      where,
-      orderBy,
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-    }),
-    computeStats(),
-  ]);
+  const total = filtered.length;
+  const items = filtered.slice((page - 1) * pageSize, page * pageSize).map(rowToContactMessage);
 
   return {
-    items: items.map(rowToContactMessage),
-    total: count,
+    items,
+    total,
     page,
     pageSize,
-    totalPages: Math.max(1, Math.ceil(count / pageSize)),
-    stats,
+    totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    stats: await computeStats(),
   };
 }
 
 export async function getContactMessage(id: number): Promise<ContactMessageData> {
-  const row = await db.contactMessage.findUnique({ where: { id } });
+  const row = await findById<ContactMessageRow>("contactMessages", id);
   if (!row) throw new ContactMessageNotFoundError(id);
   return rowToContactMessage(row);
 }
@@ -228,15 +205,16 @@ export async function updateContactMessageStatus(
   id: number,
   status: ContactMessageStatus
 ): Promise<ContactMessageData> {
-  const previous = await db.contactMessage.findUnique({ where: { id } });
+  const previous = await findById<ContactMessageRow>("contactMessages", id);
   if (!previous) throw new ContactMessageNotFoundError(id);
 
+  const data: Record<string, unknown> = { status };
   const now = new Date();
-  const data: Prisma.ContactMessageUpdateInput = { status };
   if (status === "REPLIED" && !previous.repliedAt) data.repliedAt = now;
   if (status === "CLOSED" && !previous.closedAt) data.closedAt = now;
 
-  const row = await db.contactMessage.update({ where: { id }, data });
+  const row = await updateDoc<ContactMessageRow>("contactMessages", id, data);
+  if (!row) throw new ContactMessageNotFoundError(id);
   return rowToContactMessage(row);
 }
 
@@ -245,17 +223,15 @@ export async function updateContactMessageNotes(
   id: number,
   notes: string
 ): Promise<ContactMessageData> {
-  const previous = await db.contactMessage.findUnique({ where: { id } });
+  const previous = await findById<ContactMessageRow>("contactMessages", id);
   if (!previous) throw new ContactMessageNotFoundError(id);
-  const row = await db.contactMessage.update({
-    where: { id },
-    data: { notes: notes.trim() },
-  });
+  const row = await updateDoc<ContactMessageRow>("contactMessages", id, { notes: notes.trim() });
+  if (!row) throw new ContactMessageNotFoundError(id);
   return rowToContactMessage(row);
 }
 
 export async function deleteContactMessage(id: number): Promise<void> {
-  const previous = await db.contactMessage.findUnique({ where: { id } });
+  const previous = await findById<ContactMessageRow>("contactMessages", id);
   if (!previous) throw new ContactMessageNotFoundError(id);
-  await db.contactMessage.delete({ where: { id } });
+  await deleteDoc("contactMessages", id);
 }

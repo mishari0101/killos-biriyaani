@@ -1,8 +1,7 @@
 import "server-only";
 
-import { Prisma } from "@/generated/prisma/client";
-import { db } from "@/lib/db";
 import { imageStorage } from "@/lib/uploads/storage";
+import { findAll, findById, createDoc, updateDoc, deleteDoc, nextId } from "@/lib/firebase/repo";
 import { isValidPrice, slugifyCategory, type MenuCategoryInput, type MenuItemInput } from "./validate";
 import {
   type MenuCategoryData,
@@ -23,7 +22,7 @@ function toBoolean(value: unknown): boolean {
   return value === true;
 }
 
-/** Map a Prisma row to the API shape (converts Decimal price to a number). */
+/** Map a stored row to the API shape (price is already a number). */
 export function rowToMenuItem(row: MenuItemRow): MenuItemData {
   return {
     id: row.id,
@@ -54,20 +53,34 @@ export function toMenuItemInput(raw: Record<string, unknown>): MenuItemInput {
   };
 }
 
-function toOrderBy(sort: MenuSort): Prisma.MenuItemOrderByWithRelationInput[] {
+function compareForSort(sort: MenuSort): (a: MenuItemRow, b: MenuItemRow) => number {
   switch (sort) {
     case "name":
-      return [{ name: "asc" }];
+      return (a, b) => a.name.localeCompare(b.name);
     case "price-asc":
-      return [{ price: "asc" }];
+      return (a, b) => a.price - b.price;
     case "price-desc":
-      return [{ price: "desc" }];
+      return (a, b) => b.price - a.price;
     case "newest":
-      return [{ createdAt: "desc" }];
+      return (a, b) => b.createdAt.getTime() - a.createdAt.getTime();
     case "order":
     default:
-      return [{ displayOrder: "asc" }, { name: "asc" }];
+      return (a, b) => a.displayOrder - b.displayOrder || a.name.localeCompare(b.name);
   }
+}
+
+function matchesFilters(row: MenuItemRow, filters: MenuFilters): boolean {
+  const search = filters.search?.trim().toLowerCase();
+  if (search) {
+    const haystack = `${row.name} ${row.description}`.toLowerCase();
+    if (!haystack.includes(search)) return false;
+  }
+  if (filters.category && row.category !== filters.category) return false;
+  if (filters.availability === "available" && !row.available) return false;
+  if (filters.availability === "unavailable" && row.available) return false;
+  if (filters.featured === "featured" && !row.featured) return false;
+  if (filters.featured === "regular" && row.featured) return false;
+  return true;
 }
 
 /** List menu items with search, filters, sorting and pagination. */
@@ -75,56 +88,22 @@ export async function listMenuItems(filters: MenuFilters = {}): Promise<MenuList
   const page = Math.max(1, filters.page ?? 1);
   const pageSize = Math.min(50, Math.max(1, filters.pageSize ?? 12));
 
-  const where: Prisma.MenuItemWhereInput = {};
-  if (filters.search) {
-    const search = filters.search.trim();
-    if (search) {
-      where.OR = [
-        { name: { contains: search } },
-        { description: { contains: search } },
-      ];
-    }
-  }
-  if (filters.category) {
-    where.category = filters.category;
-  }
-  if (filters.availability === "available") {
-    where.available = true;
-  } else if (filters.availability === "unavailable") {
-    where.available = false;
-  }
-  if (filters.featured === "featured") {
-    where.featured = true;
-  } else if (filters.featured === "regular") {
-    where.featured = false;
-  }
+  const rows = await findAll<MenuItemRow>("menuItems");
+  const filtered = rows.filter((row) => matchesFilters(row, filters));
+  filtered.sort(compareForSort(filters.sort ?? "order"));
 
-  const [rows, total] = await Promise.all([
-    db.menuItem.findMany({
-      where,
-      orderBy: toOrderBy(filters.sort ?? "order"),
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-    }),
-    db.menuItem.count({ where }),
-  ]);
+  const total = filtered.length;
+  const items = filtered.slice((page - 1) * pageSize, page * pageSize).map(rowToMenuItem);
 
-  const distinct = await db.menuItem.findMany({
-    select: { category: true },
-    distinct: ["category"],
-    orderBy: { category: "asc" },
-  });
-  const existing = distinct.map((d) => d.category).filter(Boolean);
-  const tableCategories = await db.menuCategory.findMany({
-    select: { name: true },
-    orderBy: [{ displayOrder: "asc" }, { name: "asc" }],
-  });
-  const categories = Array.from(
-    new Set([...tableCategories.map((c) => c.name), ...existing])
+  const existing = Array.from(new Set(rows.map((r) => r.category).filter(Boolean))).sort((a, b) =>
+    a.localeCompare(b)
   );
+  const categoryRows = await findAll<MenuCategoryRow>("menuCategories");
+  categoryRows.sort((a, b) => a.displayOrder - b.displayOrder || a.name.localeCompare(b.name));
+  const categories = Array.from(new Set([...categoryRows.map((c) => c.name), ...existing]));
 
   return {
-    items: rows.map(rowToMenuItem),
+    items,
     total,
     page,
     pageSize,
@@ -135,23 +114,22 @@ export async function listMenuItems(filters: MenuFilters = {}): Promise<MenuList
 
 /** Fetch a single item by id. */
 export async function getMenuItem(id: number): Promise<MenuItemData | null> {
-  const row = await db.menuItem.findUnique({ where: { id } });
+  const row = await findById<MenuItemRow>("menuItems", id);
   return row ? rowToMenuItem(row) : null;
 }
 
 /** Create a menu item. */
 export async function createMenuItem(data: MenuItemInput): Promise<MenuItemData> {
-  const row = await db.menuItem.create({
-    data: {
-      category: data.category.trim(),
-      name: data.name.trim(),
-      description: data.description.trim(),
-      price: new Prisma.Decimal(data.price.toFixed(2)),
-      imageUrl: data.imageUrl.trim(),
-      available: data.available,
-      featured: data.featured,
-      displayOrder: data.displayOrder,
-    },
+  const id = await nextId("menuItems");
+  const row = await createDoc<MenuItemRow>("menuItems", id, {
+    category: data.category.trim(),
+    name: data.name.trim(),
+    description: data.description.trim(),
+    price: Math.round(data.price * 100) / 100,
+    imageUrl: data.imageUrl.trim(),
+    available: data.available,
+    featured: data.featured,
+    displayOrder: data.displayOrder,
   });
   return rowToMenuItem(row);
 }
@@ -173,22 +151,20 @@ export class MenuItemNotFoundError extends Error {
 
 /** Update a menu item. */
 export async function updateMenuItem(id: number, data: MenuItemInput): Promise<MenuItemData> {
-  const previous = await db.menuItem.findUnique({ where: { id } });
+  const previous = await findById<MenuItemRow>("menuItems", id);
   if (!previous) throw new MenuItemNotFoundError(id);
-  const row = await db.menuItem.update({
-    where: { id },
-    data: {
-      category: data.category.trim(),
-      name: data.name.trim(),
-      description: data.description.trim(),
-      price: new Prisma.Decimal(data.price.toFixed(2)),
-      imageUrl: data.imageUrl.trim(),
-      available: data.available,
-      featured: data.featured,
-      displayOrder: data.displayOrder,
-    },
+  const row = await updateDoc<MenuItemRow>("menuItems", id, {
+    category: data.category.trim(),
+    name: data.name.trim(),
+    description: data.description.trim(),
+    price: Math.round(data.price * 100) / 100,
+    imageUrl: data.imageUrl.trim(),
+    available: data.available,
+    featured: data.featured,
+    displayOrder: data.displayOrder,
   });
-  if (previous && previous.imageUrl !== row.imageUrl) {
+  if (!row) throw new MenuItemNotFoundError(id);
+  if (previous.imageUrl !== row.imageUrl) {
     await removeManagedImage(previous.imageUrl);
   }
   return rowToMenuItem(row);
@@ -196,9 +172,9 @@ export async function updateMenuItem(id: number, data: MenuItemInput): Promise<M
 
 /** Delete a menu item. */
 export async function deleteMenuItem(id: number): Promise<void> {
-  const previous = await db.menuItem.findUnique({ where: { id } });
+  const previous = await findById<MenuItemRow>("menuItems", id);
   if (!previous) throw new MenuItemNotFoundError(id);
-  await db.menuItem.delete({ where: { id } });
+  await deleteDoc("menuItems", id);
   await removeManagedImage(previous.imageUrl);
 }
 
@@ -208,7 +184,7 @@ export function normalizePrice(value: string | number): number {
   return isValidPrice(n) ? n : NaN;
 }
 
-/** Map a Prisma category row to the API shape. */
+/** Map a stored category row to the API shape. */
 export function rowToMenuCategory(row: MenuCategoryRow): MenuCategoryData {
   return {
     id: row.id,
@@ -241,25 +217,28 @@ export class MenuCategoryConflictError extends Error {
 
 /** List all categories ordered by display order then name. */
 export async function listMenuCategories(): Promise<MenuCategoryData[]> {
-  const rows = await db.menuCategory.findMany({
-    orderBy: [{ displayOrder: "asc" }, { name: "asc" }],
-  });
+  const rows = await findAll<MenuCategoryRow>("menuCategories");
+  rows.sort((a, b) => a.displayOrder - b.displayOrder || a.name.localeCompare(b.name));
   return rows.map(rowToMenuCategory);
 }
 
-/** Create a category, rejecting duplicates (case-insensitive, via ci collation). */
+/** Create a category, rejecting duplicates (case-insensitive). */
 export async function createMenuCategory(data: MenuCategoryInput): Promise<MenuCategoryData> {
   const name = data.name.trim();
   const slug = data.slug.trim();
-  const existing = await db.menuCategory.findFirst({
-    where: { OR: [{ name }, { slug }] },
-  });
+  const rows = await findAll<MenuCategoryRow>("menuCategories");
+  const existing = rows.find(
+    (r) => r.name.toLowerCase() === name.toLowerCase() || r.slug.toLowerCase() === slug.toLowerCase()
+  );
   if (existing) {
     const field = existing.name.toLowerCase() === name.toLowerCase() ? "name" : "slug";
     throw new MenuCategoryConflictError(field);
   }
-  const row = await db.menuCategory.create({
-    data: { name, slug, displayOrder: data.displayOrder },
+  const id = await nextId("menuCategories");
+  const row = await createDoc<MenuCategoryRow>("menuCategories", id, {
+    name,
+    slug,
+    displayOrder: data.displayOrder,
   });
   return rowToMenuCategory(row);
 }

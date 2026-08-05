@@ -1,5 +1,3 @@
-import type { ReviewModel } from "@/generated/prisma/models/Review";
-
 /** Wire shape returned by the API and used by the reviews manager. */
 export interface ReviewData {
   id: number;
@@ -15,8 +13,20 @@ export interface ReviewData {
   updatedAt: string;
 }
 
-/** Raw row as stored by Prisma. */
-export type ReviewRow = ReviewModel;
+/** Raw row as stored in Firestore. */
+export interface ReviewRow {
+  id: number;
+  name: string;
+  imageUrl: string;
+  rating: number;
+  text: string;
+  reviewDate: string;
+  displayOrder: number;
+  featured: boolean;
+  visible: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 export interface ReviewFilters {
   search?: string;

@@ -1,5 +1,3 @@
-import type { GalleryItemModel } from "@/generated/prisma/models/GalleryItem";
-
 /** Wire shape returned by the API and used by the gallery manager. */
 export interface GalleryItemData {
   id: number;
@@ -14,8 +12,19 @@ export interface GalleryItemData {
   updatedAt: string;
 }
 
-/** Raw row as stored by Prisma. */
-export type GalleryItemRow = GalleryItemModel;
+/** Raw row as stored in Firestore. */
+export interface GalleryItemRow {
+  id: number;
+  title: string;
+  description: string;
+  imageUrl: string;
+  aspect: string;
+  displayOrder: number;
+  featured: boolean;
+  visible: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 export interface GalleryFilters {
   search?: string;

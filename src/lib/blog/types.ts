@@ -1,5 +1,3 @@
-import type { BlogPostModel } from "@/generated/prisma/models/BlogPost";
-
 /** Wire shape returned by the API and used by the blog manager. */
 export interface BlogData {
   id: number;
@@ -22,8 +20,26 @@ export interface BlogData {
   updatedAt: string;
 }
 
-/** Raw row as stored by Prisma. */
-export type BlogRow = BlogPostModel;
+/** Raw row as stored in Firestore. */
+export interface BlogRow {
+  id: number;
+  title: string;
+  slug: string;
+  excerpt: string;
+  content: string;
+  coverImage: string;
+  category: string;
+  tags: string;
+  author: string;
+  featured: boolean;
+  published: boolean;
+  publishedAt: Date | null;
+  displayOrder: number;
+  seoTitle: string;
+  seoDescription: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 export interface BlogFilters {
   search?: string;

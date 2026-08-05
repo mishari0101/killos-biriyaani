@@ -1,7 +1,6 @@
 import "server-only";
 
-import { Prisma } from "@/generated/prisma/client";
-import { db } from "@/lib/db";
+import { findAll, findById, createDoc, updateDoc, deleteDoc, updateMany, nextId } from "@/lib/firebase/repo";
 import type { FaqData, FaqFilters, FaqListResult, FaqRow } from "./types";
 import type { FaqInput } from "./validate";
 
@@ -14,7 +13,7 @@ function toBoolean(value: unknown): boolean {
   return value === true;
 }
 
-/** Map a Prisma row to the API shape. */
+/** Map a stored row to the API shape. */
 export function rowToFaq(row: FaqRow): FaqData {
   return {
     id: row.id,
@@ -41,70 +40,53 @@ export function toFaqInput(raw: Record<string, unknown>): FaqInput {
   };
 }
 
-const PUBLIC_ORDER: Prisma.FaqOrderByWithRelationInput[] = [
-  { featured: "desc" },
-  { displayOrder: "asc" },
-  { id: "asc" },
-];
+function comparePublic(a: FaqRow, b: FaqRow): number {
+  return Number(b.featured) - Number(a.featured) || a.displayOrder - b.displayOrder || a.id - b.id;
+}
+
+function matchesFilters(row: FaqRow, filters: FaqFilters): boolean {
+  const search = filters.search?.trim().toLowerCase();
+  if (search) {
+    const haystack = `${row.question} ${row.answer} ${row.category}`.toLowerCase();
+    if (!haystack.includes(search)) return false;
+  }
+  if (filters.visibility === "visible" && !row.visible) return false;
+  if (filters.visibility === "hidden" && row.visible) return false;
+  if (filters.featured === "featured" && !row.featured) return false;
+  if (filters.featured === "regular" && row.featured) return false;
+  return true;
+}
 
 /** List FAQs with search and visibility/featured filters (admin manager). */
 export async function listFaqs(filters: FaqFilters = {}): Promise<FaqListResult> {
-  const where: Prisma.FaqWhereInput = {};
-  if (filters.search) {
-    const search = filters.search.trim();
-    if (search) {
-      where.OR = [
-        { question: { contains: search } },
-        { answer: { contains: search } },
-        { category: { contains: search } },
-      ];
-    }
-  }
-  if (filters.visibility === "visible") {
-    where.visible = true;
-  } else if (filters.visibility === "hidden") {
-    where.visible = false;
-  }
-  if (filters.featured === "featured") {
-    where.featured = true;
-  } else if (filters.featured === "regular") {
-    where.featured = false;
-  }
-
-  const [rows, total] = await Promise.all([
-    db.faq.findMany({ where, orderBy: PUBLIC_ORDER }),
-    db.faq.count({ where }),
-  ]);
-
-  return { items: rows.map(rowToFaq), total };
+  const rows = await findAll<FaqRow>("faqs");
+  const filtered = rows.filter((row) => matchesFilters(row, filters));
+  filtered.sort(comparePublic);
+  return { items: filtered.map(rowToFaq), total: filtered.length };
 }
 
 /** Public FAQs for the site: visible only, featured first, then display order. */
 export async function listPublicFaqs(): Promise<FaqData[]> {
-  const rows = await db.faq.findMany({
-    where: { visible: true },
-    orderBy: PUBLIC_ORDER,
-  });
-  return rows.map(rowToFaq);
+  const rows = await findAll<FaqRow>("faqs");
+  return rows.filter((row) => row.visible).sort(comparePublic).map(rowToFaq);
 }
 
 /** Fetch a single FAQ by id. */
 export async function getFaq(id: number): Promise<FaqData | null> {
-  const row = await db.faq.findUnique({ where: { id } });
+  const row = await findById<FaqRow>("faqs", id);
   return row ? rowToFaq(row) : null;
 }
 
 /** Create a FAQ. */
 export async function createFaq(data: FaqInput): Promise<FaqData> {
-  const row = await db.faq.create({
-    data: {
-      question: data.question.trim(),
-      answer: data.answer.trim(),
-      category: data.category.trim(),
-      displayOrder: data.displayOrder,
-      featured: data.featured,
-      visible: data.visible,
-    },
+  const id = await nextId("faqs");
+  const row = await createDoc<FaqRow>("faqs", id, {
+    question: data.question.trim(),
+    answer: data.answer.trim(),
+    category: data.category.trim(),
+    displayOrder: data.displayOrder,
+    featured: data.featured,
+    visible: data.visible,
   });
   return rowToFaq(row);
 }
@@ -119,37 +101,31 @@ export class FaqNotFoundError extends Error {
 
 /** Update a FAQ. */
 export async function updateFaq(id: number, data: FaqInput): Promise<FaqData> {
-  const previous = await db.faq.findUnique({ where: { id } });
+  const previous = await findById<FaqRow>("faqs", id);
   if (!previous) throw new FaqNotFoundError(id);
-  const row = await db.faq.update({
-    where: { id },
-    data: {
-      question: data.question.trim(),
-      answer: data.answer.trim(),
-      category: data.category.trim(),
-      displayOrder: data.displayOrder,
-      featured: data.featured,
-      visible: data.visible,
-    },
+  const row = await updateDoc<FaqRow>("faqs", id, {
+    question: data.question.trim(),
+    answer: data.answer.trim(),
+    category: data.category.trim(),
+    displayOrder: data.displayOrder,
+    featured: data.featured,
+    visible: data.visible,
   });
+  if (!row) throw new FaqNotFoundError(id);
   return rowToFaq(row);
 }
 
 /** Delete a FAQ. */
 export async function deleteFaq(id: number): Promise<void> {
-  const previous = await db.faq.findUnique({ where: { id } });
+  const previous = await findById<FaqRow>("faqs", id);
   if (!previous) throw new FaqNotFoundError(id);
-  await db.faq.delete({ where: { id } });
+  await deleteDoc("faqs", id);
 }
 
 /** Persist a drag-and-drop reorder (displayOrder is compacted to 0..n). */
 export async function reorderFaqs(entries: { id: number; displayOrder: number }[]): Promise<void> {
-  await db.$transaction(
-    entries.map((entry) =>
-      db.faq.update({
-        where: { id: entry.id },
-        data: { displayOrder: entry.displayOrder },
-      })
-    )
+  await updateMany(
+    "faqs",
+    entries.map((entry) => ({ id: entry.id, data: { displayOrder: entry.displayOrder } }))
   );
 }

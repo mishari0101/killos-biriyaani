@@ -1,7 +1,6 @@
 import "server-only";
 
-import { Prisma } from "@/generated/prisma/client";
-import { db } from "@/lib/db";
+import { findAll, findById, createDoc, updateDoc, deleteDoc, updateMany, nextId } from "@/lib/firebase/repo";
 import { imageStorage } from "@/lib/uploads/storage";
 import { DAYS, type DayHours } from "@/lib/settings/types";
 import type { BranchItem } from "@/lib/content/branches";
@@ -42,7 +41,7 @@ export function parseHours(raw: unknown): DayHours[] {
   return out;
 }
 
-/** Map a Prisma row to the API shape. */
+/** Map a stored row to the API shape. */
 export function rowToBranch(row: BranchRow): BranchData {
   return {
     id: row.id,
@@ -88,51 +87,35 @@ export function toBranchInput(raw: Record<string, unknown>): BranchInput {
   };
 }
 
-const PUBLIC_ORDER: Prisma.BranchOrderByWithRelationInput[] = [
-  { featured: "desc" },
-  { displayOrder: "asc" },
-  { id: "asc" },
-];
+function comparePublic(a: BranchRow, b: BranchRow): number {
+  return Number(b.featured) - Number(a.featured) || a.displayOrder - b.displayOrder || a.id - b.id;
+}
+
+function matchesFilters(row: BranchRow, filters: BranchFilters): boolean {
+  const search = filters.search?.trim().toLowerCase();
+  if (search) {
+    const haystack = `${row.name} ${row.address} ${row.primaryPhone}`.toLowerCase();
+    if (!haystack.includes(search)) return false;
+  }
+  if (filters.visibility === "visible" && !row.visible) return false;
+  if (filters.visibility === "hidden" && row.visible) return false;
+  if (filters.featured === "featured" && !row.featured) return false;
+  if (filters.featured === "regular" && row.featured) return false;
+  return true;
+}
 
 /** List branches with search, visibility/featured filters and pagination. */
 export async function listBranches(filters: BranchFilters = {}): Promise<BranchListResult> {
   const page = Math.max(1, filters.page ?? 1);
   const pageSize = Math.min(50, Math.max(1, filters.pageSize ?? 24));
 
-  const where: Prisma.BranchWhereInput = {};
-  if (filters.search) {
-    const search = filters.search.trim();
-    if (search) {
-      where.OR = [
-        { name: { contains: search } },
-        { address: { contains: search } },
-        { primaryPhone: { contains: search } },
-      ];
-    }
-  }
-  if (filters.visibility === "visible") {
-    where.visible = true;
-  } else if (filters.visibility === "hidden") {
-    where.visible = false;
-  }
-  if (filters.featured === "featured") {
-    where.featured = true;
-  } else if (filters.featured === "regular") {
-    where.featured = false;
-  }
+  const rows = await findAll<BranchRow>("branches");
+  const filtered = rows.filter((row) => matchesFilters(row, filters));
+  filtered.sort(comparePublic);
 
-  const [rows, total] = await Promise.all([
-    db.branch.findMany({
-      where,
-      orderBy: PUBLIC_ORDER,
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-    }),
-    db.branch.count({ where }),
-  ]);
-
+  const total = filtered.length;
   return {
-    items: rows.map(rowToBranch),
+    items: filtered.slice((page - 1) * pageSize, page * pageSize).map(rowToBranch),
     total,
     page,
     pageSize,
@@ -142,7 +125,7 @@ export async function listBranches(filters: BranchFilters = {}): Promise<BranchL
 
 /** Fetch a single branch by id. */
 export async function getBranch(id: number): Promise<BranchData | null> {
-  const row = await db.branch.findUnique({ where: { id } });
+  const row = await findById<BranchRow>("branches", id);
   return row ? rowToBranch(row) : null;
 }
 
@@ -150,11 +133,8 @@ export async function getBranch(id: number): Promise<BranchData | null> {
 async function uniqueSlug(base: string): Promise<string> {
   const clean = slugifyBranch(base);
   if (!clean) return `branch-${Date.now()}`;
-  const existing = await db.branch.findMany({
-    where: { slug: { startsWith: clean } },
-    select: { slug: true },
-  });
-  const taken = new Set(existing.map((e) => e.slug));
+  const rows = await findAll<BranchRow>("branches");
+  const taken = new Set(rows.filter((r) => r.slug.startsWith(clean)).map((r) => r.slug));
   if (!taken.has(clean)) return clean;
   let i = 2;
   while (taken.has(`${clean}-${i}`)) i += 1;
@@ -164,25 +144,24 @@ async function uniqueSlug(base: string): Promise<string> {
 /** Create a branch. The slug is auto-generated from the name. */
 export async function createBranch(data: BranchInput): Promise<BranchData> {
   const slug = await uniqueSlug(data.name);
-  const row = await db.branch.create({
-    data: {
-      name: data.name.trim(),
-      slug,
-      imageUrl: data.imageUrl.trim(),
-      address: data.address.trim(),
-      mapsUrl: data.mapsUrl.trim(),
-      latitude: data.latitude,
-      longitude: data.longitude,
-      primaryPhone: data.primaryPhone.trim(),
-      secondaryPhone: data.secondaryPhone.trim(),
-      whatsapp: data.whatsapp.trim(),
-      email: data.email.trim(),
-      hours: data.hours as unknown as Prisma.InputJsonValue,
-      description: data.description.trim(),
-      displayOrder: data.displayOrder,
-      featured: data.featured,
-      visible: data.visible,
-    },
+  const id = await nextId("branches");
+  const row = await createDoc<BranchRow>("branches", id, {
+    name: data.name.trim(),
+    slug,
+    imageUrl: data.imageUrl.trim(),
+    address: data.address.trim(),
+    mapsUrl: data.mapsUrl.trim(),
+    latitude: data.latitude,
+    longitude: data.longitude,
+    primaryPhone: data.primaryPhone.trim(),
+    secondaryPhone: data.secondaryPhone.trim(),
+    whatsapp: data.whatsapp.trim(),
+    email: data.email.trim(),
+    hours: data.hours,
+    description: data.description.trim(),
+    displayOrder: data.displayOrder,
+    featured: data.featured,
+    visible: data.visible,
   });
   return rowToBranch(row);
 }
@@ -204,48 +183,45 @@ async function removeManagedImage(url: string | null): Promise<void> {
 
 /** Update a branch. The slug stays stable once assigned. */
 export async function updateBranch(id: number, data: BranchInput): Promise<BranchData> {
-  const previous = await db.branch.findUnique({ where: { id } });
+  const previous = await findById<BranchRow>("branches", id);
   if (!previous) throw new BranchNotFoundError(id);
-  const row = await db.branch.update({
-    where: { id },
-    data: {
-      name: data.name.trim(),
-      imageUrl: data.imageUrl.trim(),
-      address: data.address.trim(),
-      mapsUrl: data.mapsUrl.trim(),
-      latitude: data.latitude,
-      longitude: data.longitude,
-      primaryPhone: data.primaryPhone.trim(),
-      secondaryPhone: data.secondaryPhone.trim(),
-      whatsapp: data.whatsapp.trim(),
-      email: data.email.trim(),
-      hours: data.hours as unknown as Prisma.InputJsonValue,
-      description: data.description.trim(),
-      displayOrder: data.displayOrder,
-      featured: data.featured,
-      visible: data.visible,
-    },
+  const row = await updateDoc<BranchRow>("branches", id, {
+    name: data.name.trim(),
+    imageUrl: data.imageUrl.trim(),
+    address: data.address.trim(),
+    mapsUrl: data.mapsUrl.trim(),
+    latitude: data.latitude,
+    longitude: data.longitude,
+    primaryPhone: data.primaryPhone.trim(),
+    secondaryPhone: data.secondaryPhone.trim(),
+    whatsapp: data.whatsapp.trim(),
+    email: data.email.trim(),
+    hours: data.hours,
+    description: data.description.trim(),
+    displayOrder: data.displayOrder,
+    featured: data.featured,
+    visible: data.visible,
   });
+  if (!row) throw new BranchNotFoundError(id);
+  if (previous.imageUrl !== row.imageUrl) {
+    await removeManagedImage(previous.imageUrl);
+  }
   return rowToBranch(row);
 }
 
 /** Delete a branch and its managed image. */
 export async function deleteBranch(id: number): Promise<void> {
-  const previous = await db.branch.findUnique({ where: { id } });
+  const previous = await findById<BranchRow>("branches", id);
   if (!previous) throw new BranchNotFoundError(id);
-  await db.branch.delete({ where: { id } });
+  await deleteDoc("branches", id);
   await removeManagedImage(previous.imageUrl);
 }
 
 /** Persist a drag-and-drop reorder (displayOrder is compacted to 0..n). */
 export async function reorderBranches(entries: { id: number; displayOrder: number }[]): Promise<void> {
-  await db.$transaction(
-    entries.map((entry) =>
-      db.branch.update({
-        where: { id: entry.id },
-        data: { displayOrder: entry.displayOrder },
-      })
-    )
+  await updateMany(
+    "branches",
+    entries.map((entry) => ({ id: entry.id, data: { displayOrder: entry.displayOrder } }))
   );
 }
 

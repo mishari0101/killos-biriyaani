@@ -1,8 +1,9 @@
 import "server-only";
 
 import { createHash, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
-import { db } from "@/lib/db";
+import { getSingleton, setSingleton } from "@/lib/firebase/repo";
 import { getSettings } from "@/lib/settings/service";
+import type { SettingsRow } from "@/lib/settings/types";
 
 export interface AdminUser {
   id: string;
@@ -12,8 +13,6 @@ export interface AdminUser {
 }
 
 export const ADMIN_ROLE = "admin" as const;
-
-const SINGLETON_ID = 1;
 
 /** Thrown when the bootstrap credentials are missing from the environment. */
 export class AdminNotConfiguredError extends Error {
@@ -75,29 +74,27 @@ interface AdminAccountRow {
 }
 
 /**
- * Ensure the DB-backed admin account exists. On first run it is seeded from the
- * environment credentials so existing installations keep working untouched.
+ * Ensure the admin account exists on the settings singleton. On first run it is
+ * seeded from the environment credentials so existing installations keep
+ * working untouched.
  */
 async function ensureAdminSeeded(): Promise<void> {
   await getSettings();
-  const row = await db.restaurantSettings.findUnique({ where: { id: SINGLETON_ID } });
+  const row = await getSingleton<SettingsRow>("settings");
   if (!row) return;
   if (row.adminEmail && row.adminPasswordHash) return;
 
   const { email, password } = getAdminCredentials();
-  await db.restaurantSettings.update({
-    where: { id: SINGLETON_ID },
-    data: {
-      adminName: row.adminName || "Owner",
-      adminEmail: row.adminEmail || email,
-      adminPasswordHash: row.adminPasswordHash || hashPassword(password),
-    },
+  await setSingleton("settings", {
+    adminName: row.adminName || "Owner",
+    adminEmail: row.adminEmail || email,
+    adminPasswordHash: row.adminPasswordHash || hashPassword(password),
   });
 }
 
 async function loadAdminAccount(): Promise<AdminAccountRow> {
   await ensureAdminSeeded();
-  const row = await db.restaurantSettings.findUnique({ where: { id: SINGLETON_ID } });
+  const row = await getSingleton<SettingsRow>("settings");
   if (!row) throw new Error("Admin account row missing.");
   return {
     name: row.adminName || "Owner",
@@ -147,26 +144,19 @@ export async function verifyCredentials(
 
 /** Record the current time as the admin's last successful sign-in. */
 export async function recordAdminLogin(): Promise<void> {
-  await db.restaurantSettings.update({
-    where: { id: SINGLETON_ID },
-    data: { lastLoginAt: new Date() },
-  });
+  await setSingleton("settings", { lastLoginAt: new Date() });
 }
 
 /** Update the admin display name and sign-in email. */
 export async function updateAdminProfile(name: string, email: string): Promise<AdminUser> {
   await ensureAdminSeeded();
-  const row = await db.restaurantSettings.update({
-    where: { id: SINGLETON_ID },
-    data: {
-      adminName: name.trim(),
-      adminEmail: email.trim().toLowerCase(),
-    },
-  });
+  const adminName = name.trim();
+  const adminEmail = email.trim().toLowerCase();
+  await setSingleton("settings", { adminName, adminEmail });
   return {
     id: "admin-1",
-    email: row.adminEmail,
-    name: row.adminName,
+    email: adminEmail,
+    name: adminName,
     role: ADMIN_ROLE,
   };
 }
@@ -178,10 +168,7 @@ export async function changeAdminPassword(
 ): Promise<boolean> {
   const account = await loadAdminAccount();
   if (!verifyPassword(currentPassword, account.passwordHash)) return false;
-  await db.restaurantSettings.update({
-    where: { id: SINGLETON_ID },
-    data: { adminPasswordHash: hashPassword(nextPassword) },
-  });
+  await setSingleton("settings", { adminPasswordHash: hashPassword(nextPassword) });
   return true;
 }
 

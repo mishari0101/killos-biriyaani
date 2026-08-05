@@ -1,4 +1,3 @@
-import type { BranchModel } from "@/generated/prisma/models/Branch";
 import type { DayHours } from "@/lib/settings/types";
 
 /** Wire shape returned by the API and used by the branches manager. */
@@ -24,8 +23,28 @@ export interface BranchData {
   updatedAt: string;
 }
 
-/** Raw row as stored by Prisma. */
-export type BranchRow = BranchModel;
+/** Raw row as stored in Firestore. */
+export interface BranchRow {
+  id: number;
+  name: string;
+  slug: string;
+  imageUrl: string;
+  address: string;
+  mapsUrl: string;
+  latitude: number;
+  longitude: number;
+  primaryPhone: string;
+  secondaryPhone: string;
+  whatsapp: string;
+  email: string;
+  hours: unknown;
+  description: string;
+  displayOrder: number;
+  featured: boolean;
+  visible: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 export interface BranchFilters {
   search?: string;

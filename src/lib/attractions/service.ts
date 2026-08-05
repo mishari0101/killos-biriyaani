@@ -1,8 +1,7 @@
 import "server-only";
 
-import { Prisma } from "@/generated/prisma/client";
-import { db } from "@/lib/db";
 import { imageStorage } from "@/lib/uploads/storage";
+import { findAll, findById, createDoc, updateDoc, deleteDoc, updateMany, nextId } from "@/lib/firebase/repo";
 import type { AttractionData, AttractionFilters, AttractionListResult, AttractionRow } from "./types";
 import { slugifyAttraction, type AttractionInput } from "./validate";
 
@@ -15,7 +14,7 @@ function toBoolean(value: unknown): boolean {
   return value === true;
 }
 
-/** Map a Prisma row to the API shape (converts Decimal rating to a number). */
+/** Map a stored row to the API shape (rating is already a number). */
 export function rowToAttraction(row: AttractionRow): AttractionData {
   return {
     id: row.id,
@@ -49,50 +48,35 @@ export function toAttractionInput(raw: Record<string, unknown>): AttractionInput
   };
 }
 
-const PUBLIC_ORDER: Prisma.AttractionOrderByWithRelationInput[] = [
-  { featured: "desc" },
-  { displayOrder: "asc" },
-  { id: "asc" },
-];
+function comparePublic(a: AttractionRow, b: AttractionRow): number {
+  return Number(b.featured) - Number(a.featured) || a.displayOrder - b.displayOrder || a.id - b.id;
+}
+
+function matchesFilters(row: AttractionRow, filters: AttractionFilters): boolean {
+  const search = filters.search?.trim().toLowerCase();
+  if (search) {
+    const haystack = `${row.name} ${row.description}`.toLowerCase();
+    if (!haystack.includes(search)) return false;
+  }
+  if (filters.visibility === "visible" && !row.visible) return false;
+  if (filters.visibility === "hidden" && row.visible) return false;
+  if (filters.featured === "featured" && !row.featured) return false;
+  if (filters.featured === "regular" && row.featured) return false;
+  return true;
+}
 
 /** List attractions with search, visibility/featured filters and pagination. */
 export async function listAttractions(filters: AttractionFilters = {}): Promise<AttractionListResult> {
   const page = Math.max(1, filters.page ?? 1);
   const pageSize = Math.min(50, Math.max(1, filters.pageSize ?? 24));
 
-  const where: Prisma.AttractionWhereInput = {};
-  if (filters.search) {
-    const search = filters.search.trim();
-    if (search) {
-      where.OR = [
-        { name: { contains: search } },
-        { description: { contains: search } },
-      ];
-    }
-  }
-  if (filters.visibility === "visible") {
-    where.visible = true;
-  } else if (filters.visibility === "hidden") {
-    where.visible = false;
-  }
-  if (filters.featured === "featured") {
-    where.featured = true;
-  } else if (filters.featured === "regular") {
-    where.featured = false;
-  }
+  const rows = await findAll<AttractionRow>("attractions");
+  const filtered = rows.filter((row) => matchesFilters(row, filters));
+  filtered.sort(comparePublic);
 
-  const [rows, total] = await Promise.all([
-    db.attraction.findMany({
-      where,
-      orderBy: PUBLIC_ORDER,
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-    }),
-    db.attraction.count({ where }),
-  ]);
-
+  const total = filtered.length;
   return {
-    items: rows.map(rowToAttraction),
+    items: filtered.slice((page - 1) * pageSize, page * pageSize).map(rowToAttraction),
     total,
     page,
     pageSize,
@@ -102,7 +86,7 @@ export async function listAttractions(filters: AttractionFilters = {}): Promise<
 
 /** Fetch a single attraction by id. */
 export async function getAttraction(id: number): Promise<AttractionData | null> {
-  const row = await db.attraction.findUnique({ where: { id } });
+  const row = await findById<AttractionRow>("attractions", id);
   return row ? rowToAttraction(row) : null;
 }
 
@@ -110,11 +94,8 @@ export async function getAttraction(id: number): Promise<AttractionData | null> 
 async function uniqueSlug(base: string): Promise<string> {
   const clean = slugifyAttraction(base);
   if (!clean) return `attraction-${Date.now()}`;
-  const existing = await db.attraction.findMany({
-    where: { slug: { startsWith: clean } },
-    select: { slug: true },
-  });
-  const taken = new Set(existing.map((e) => e.slug));
+  const rows = await findAll<AttractionRow>("attractions");
+  const taken = new Set(rows.filter((r) => r.slug.startsWith(clean)).map((r) => r.slug));
   if (!taken.has(clean)) return clean;
   let i = 2;
   while (taken.has(`${clean}-${i}`)) i += 1;
@@ -124,19 +105,18 @@ async function uniqueSlug(base: string): Promise<string> {
 /** Create an attraction. The slug is auto-generated from the name. */
 export async function createAttraction(data: AttractionInput): Promise<AttractionData> {
   const slug = await uniqueSlug(data.name);
-  const row = await db.attraction.create({
-    data: {
-      name: data.name.trim(),
-      slug,
-      description: data.description.trim(),
-      imageUrl: data.imageUrl.trim(),
-      mapUrl: data.mapUrl.trim(),
-      rating: new Prisma.Decimal(data.rating.toFixed(1)),
-      travelTime: data.travelTime.trim(),
-      displayOrder: data.displayOrder,
-      featured: data.featured,
-      visible: data.visible,
-    },
+  const id = await nextId("attractions");
+  const row = await createDoc<AttractionRow>("attractions", id, {
+    name: data.name.trim(),
+    slug,
+    description: data.description.trim(),
+    imageUrl: data.imageUrl.trim(),
+    mapUrl: data.mapUrl.trim(),
+    rating: Math.round(data.rating * 10) / 10,
+    travelTime: data.travelTime.trim(),
+    displayOrder: data.displayOrder,
+    featured: data.featured,
+    visible: data.visible,
   });
   return rowToAttraction(row);
 }
@@ -158,22 +138,20 @@ async function removeManagedImage(url: string | null): Promise<void> {
 
 /** Update an attraction. The slug stays stable once assigned. */
 export async function updateAttraction(id: number, data: AttractionInput): Promise<AttractionData> {
-  const previous = await db.attraction.findUnique({ where: { id } });
+  const previous = await findById<AttractionRow>("attractions", id);
   if (!previous) throw new AttractionNotFoundError(id);
-  const row = await db.attraction.update({
-    where: { id },
-    data: {
-      name: data.name.trim(),
-      description: data.description.trim(),
-      imageUrl: data.imageUrl.trim(),
-      mapUrl: data.mapUrl.trim(),
-      rating: new Prisma.Decimal(data.rating.toFixed(1)),
-      travelTime: data.travelTime.trim(),
-      displayOrder: data.displayOrder,
-      featured: data.featured,
-      visible: data.visible,
-    },
+  const row = await updateDoc<AttractionRow>("attractions", id, {
+    name: data.name.trim(),
+    description: data.description.trim(),
+    imageUrl: data.imageUrl.trim(),
+    mapUrl: data.mapUrl.trim(),
+    rating: Math.round(data.rating * 10) / 10,
+    travelTime: data.travelTime.trim(),
+    displayOrder: data.displayOrder,
+    featured: data.featured,
+    visible: data.visible,
   });
+  if (!row) throw new AttractionNotFoundError(id);
   if (previous.imageUrl !== row.imageUrl) {
     await removeManagedImage(previous.imageUrl);
   }
@@ -182,20 +160,16 @@ export async function updateAttraction(id: number, data: AttractionInput): Promi
 
 /** Delete an attraction and its managed image. */
 export async function deleteAttraction(id: number): Promise<void> {
-  const previous = await db.attraction.findUnique({ where: { id } });
+  const previous = await findById<AttractionRow>("attractions", id);
   if (!previous) throw new AttractionNotFoundError(id);
-  await db.attraction.delete({ where: { id } });
+  await deleteDoc("attractions", id);
   await removeManagedImage(previous.imageUrl);
 }
 
 /** Persist a drag-and-drop reorder (displayOrder is compacted to 0..n). */
 export async function reorderAttractions(entries: { id: number; displayOrder: number }[]): Promise<void> {
-  await db.$transaction(
-    entries.map((entry) =>
-      db.attraction.update({
-        where: { id: entry.id },
-        data: { displayOrder: entry.displayOrder },
-      })
-    )
+  await updateMany(
+    "attractions",
+    entries.map((entry) => ({ id: entry.id, data: { displayOrder: entry.displayOrder } }))
   );
 }

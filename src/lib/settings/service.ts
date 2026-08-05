@@ -1,11 +1,8 @@
 import "server-only";
 
-import { Prisma } from "@/generated/prisma/client";
-import { db } from "@/lib/db";
+import { getSingleton, setSingleton } from "@/lib/firebase/repo";
 import { DEFAULT_SETTINGS } from "./defaults";
 import { DAYS, type DayHours, type SettingsData, type SettingsRow, type SocialKey, type SocialMedia } from "./types";
-
-const SINGLETON_ID = 1;
 
 function toSocialMedia(value: unknown): SocialMedia {
   const base = { ...DEFAULT_SETTINGS.socialMedia };
@@ -44,7 +41,7 @@ function toBusinessHours(value: unknown): DayHours[] {
   return DEFAULT_SETTINGS.businessHours;
 }
 
-/** Map a Prisma row to the API shape (normalizes JSON columns + defaults). */
+/** Map a stored row to the API shape (normalizes JSON columns + defaults). */
 export function rowToSettings(row: SettingsRow): SettingsData {
   return {
     restaurantName: row.restaurantName,
@@ -80,8 +77,8 @@ export function rowToSettings(row: SettingsRow): SettingsData {
   };
 }
 
-/** Map validated settings into a Prisma create/update payload (no meta fields). */
-function toPrismaInput(data: SettingsData): Prisma.RestaurantSettingsCreateInput {
+/** Map validated settings into a Firestore payload (no meta fields). */
+function toStoreInput(data: SettingsData): Record<string, unknown> {
   return {
     restaurantName: data.restaurantName,
     tagline: data.tagline,
@@ -93,8 +90,8 @@ function toPrismaInput(data: SettingsData): Prisma.RestaurantSettingsCreateInput
     secondaryPhone: data.secondaryPhone,
     whatsappNumber: data.whatsappNumber,
     email: data.email,
-    businessHours: data.businessHours as unknown as Prisma.InputJsonValue,
-    socialMedia: data.socialMedia as unknown as Prisma.InputJsonValue,
+    businessHours: data.businessHours,
+    socialMedia: data.socialMedia,
     metaTitle: data.metaTitle,
     metaDescription: data.metaDescription,
     keywords: data.keywords,
@@ -109,26 +106,18 @@ function toPrismaInput(data: SettingsData): Prisma.RestaurantSettingsCreateInput
   };
 }
 
-/** Fetch the single active settings row. If none exists yet, seeds it with defaults and returns those. */
+/** Fetch the single settings singleton. If none exists yet, seeds it with defaults and returns those. */
 export async function getSettings(): Promise<SettingsData> {
-  let row = await db.restaurantSettings.findUnique({ where: { id: SINGLETON_ID } });
-  if (!row) {
-    row = await db.restaurantSettings.upsert({
-      where: { id: SINGLETON_ID },
-      update: {},
-      create: toPrismaInput(DEFAULT_SETTINGS),
-    });
-  }
-  return rowToSettings(row);
+  const row = await getSingleton<SettingsRow>("settings");
+  if (row) return rowToSettings(row);
+  await setSingleton("settings", toStoreInput(DEFAULT_SETTINGS));
+  const seeded = await getSingleton<SettingsRow>("settings");
+  return rowToSettings(seeded ?? (toStoreInput(DEFAULT_SETTINGS) as unknown as SettingsRow));
 }
 
-/** Upsert the singleton row with validated settings. */
+/** Upsert the settings singleton with validated settings. */
 export async function saveSettings(data: SettingsData): Promise<SettingsData> {
-  const input = toPrismaInput(data);
-  const row = await db.restaurantSettings.upsert({
-    where: { id: SINGLETON_ID },
-    update: input,
-    create: input,
-  });
-  return rowToSettings(row);
+  await setSingleton("settings", toStoreInput(data));
+  const row = await getSingleton<SettingsRow>("settings");
+  return rowToSettings(row ?? (toStoreInput(data) as unknown as SettingsRow));
 }

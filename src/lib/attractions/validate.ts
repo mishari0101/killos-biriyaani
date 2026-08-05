@@ -1,6 +1,6 @@
 import { isValidUrl } from "@/lib/settings/validate";
 
-const LOCAL_UPLOAD_RE = /^\/api\/uploads\/file\/[a-zA-Z0-9-_.]+(?:\/[a-zA-Z0-9-_.]+)*$/;
+const LOCAL_UPLOAD_RE = /^\/uploads\/[a-zA-Z0-9_-]+\/[a-zA-Z0-9-_.]+$/;
 
 export function isValidImageUrl(value: string): boolean {
   const trimmed = value.trim();

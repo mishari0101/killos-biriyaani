@@ -1,6 +1,6 @@
 import "server-only";
 
-import { db } from "@/lib/db";
+import { findAll } from "@/lib/firebase/repo";
 import { todayLocalISO } from "@/lib/reservations/validate";
 import type {
   DashboardChart,
@@ -63,76 +63,56 @@ function buildChart(
   return { points, total, max };
 }
 
-/** One optimized read: every dashboard metric fetched in a single parallel batch. */
+interface ReservationCountRow {
+  id: number;
+  number: string;
+  name: string;
+  status: string;
+  createdAt: Date;
+}
+
+interface MessageCountRow {
+  id: number;
+  number: string;
+  name: string;
+  status: string;
+  createdAt: Date;
+}
+
+/** Every dashboard metric fetched from in-memory reads of the small datasets. */
 export async function getDashboardData(): Promise<DashboardData> {
   const now = new Date();
   const today = todayLocalISO();
-  const dayStart = startOfLocalDay(now);
   const chartStart = startOfChartWindow(now);
 
-  const [
-    reservationsTotal,
-    reservationsPending,
-    reservationsToday,
-    messagesTotal,
-    messagesNew,
-    messagesToday,
-    unreadMessages,
-    menuItems,
-    galleryImages,
-    attractions,
-    reviews,
-    branches,
-    recentReservations,
-    recentMessages,
-    reservationDayCounts,
-    messageCreatedAts,
-  ] = await Promise.all([
-    db.reservation.count(),
-    db.reservation.count({ where: { status: "PENDING" } }),
-    db.reservation.count({ where: { date: today } }),
-    db.contactMessage.count(),
-    db.contactMessage.count({ where: { status: "NEW" } }),
-    db.contactMessage.count({ where: { createdAt: { gte: dayStart } } }),
-    db.contactMessage.count({ where: { status: { in: ["NEW", "READ"] } } }),
-    db.menuItem.count(),
-    db.galleryItem.count(),
-    db.attraction.count(),
-    db.review.count(),
-    db.branch.count(),
-    db.reservation.findMany({
-      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-      take: RECENT_COUNT,
-      select: { id: true, number: true, name: true, status: true, createdAt: true },
-    }),
-    db.contactMessage.findMany({
-      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-      take: RECENT_COUNT,
-      select: { id: true, number: true, name: true, status: true, createdAt: true },
-    }),
-    db.reservation.groupBy({
-      by: ["date"],
-      where: { date: { gte: toLocalISO(chartStart) } },
-      _count: { _all: true },
-    }),
-    db.contactMessage.findMany({
-      where: { createdAt: { gte: chartStart } },
-      orderBy: { createdAt: "asc" },
-      select: { createdAt: true },
-    }),
-  ]);
+  const [reservations, messages, menuItems, galleryImages, attractions, reviews, branches] =
+    await Promise.all([
+      findAll<ReservationCountRow & { date: string }>("reservations"),
+      findAll<MessageCountRow>("contactMessages"),
+      findAll("menuItems"),
+      findAll("galleryItems"),
+      findAll("attractions"),
+      findAll("reviews"),
+      findAll("branches"),
+    ]);
+
+  const reservationsPending = reservations.filter((r) => r.status === "PENDING").length;
+  const reservationsToday = reservations.filter((r) => r.date === today).length;
+  const messagesNew = messages.filter((m) => m.status === "NEW").length;
+  const messagesToday = messages.filter((m) => m.createdAt.getTime() >= startOfLocalDay(now).getTime()).length;
+  const unreadMessages = messages.filter((m) => m.status === "NEW" || m.status === "READ").length;
 
   const stats: DashboardStats = {
-    reservationsTotal,
+    reservationsTotal: reservations.length,
     reservationsPending,
     reservationsToday,
-    messagesTotal,
+    messagesTotal: messages.length,
     messagesNew,
-    menuItems,
-    galleryImages,
-    attractions,
-    reviews,
-    branches,
+    menuItems: menuItems.length,
+    galleryImages: galleryImages.length,
+    attractions: attractions.length,
+    reviews: reviews.length,
+    branches: branches.length,
   };
 
   const todaySummary: TodaySummary = {
@@ -141,6 +121,13 @@ export async function getDashboardData(): Promise<DashboardData> {
     pendingReservations: reservationsPending,
     unreadMessages,
   };
+
+  const recentReservations = [...reservations]
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime() || b.id - a.id)
+    .slice(0, RECENT_COUNT);
+  const recentMessages = [...messages]
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime() || b.id - a.id)
+    .slice(0, RECENT_COUNT);
 
   const recent: RecentActivityItem[] = [
     ...recentReservations.map((row) => ({
@@ -163,14 +150,20 @@ export async function getDashboardData(): Promise<DashboardData> {
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id - a.id)
     .slice(0, 6);
 
-  const reservationCounts = new Map(
-    reservationDayCounts.map((row) => [row.date, row._count._all])
-  );
+  const chartStartISO = toLocalISO(chartStart);
+  const reservationCounts = new Map<string, number>();
+  for (const row of reservations) {
+    if (row.date >= chartStartISO) {
+      reservationCounts.set(row.date, (reservationCounts.get(row.date) ?? 0) + 1);
+    }
+  }
 
   const messageCounts = new Map<string, number>();
-  for (const row of messageCreatedAts) {
-    const key = toLocalISO(new Date(row.createdAt));
-    messageCounts.set(key, (messageCounts.get(key) ?? 0) + 1);
+  for (const row of messages) {
+    if (row.createdAt.getTime() >= chartStart.getTime()) {
+      const key = toLocalISO(new Date(row.createdAt));
+      messageCounts.set(key, (messageCounts.get(key) ?? 0) + 1);
+    }
   }
 
   const days = chartDays();

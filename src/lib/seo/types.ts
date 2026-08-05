@@ -1,5 +1,3 @@
-import type { SiteSEOModel } from "@/generated/prisma/models/SiteSEO";
-
 /** Wire shape returned by the API and used by the SEO manager. */
 export interface SeoData {
   siteTitle: string;
@@ -23,8 +21,28 @@ export interface SeoData {
   updatedAt: string | null;
 }
 
-/** Raw row as stored by Prisma. */
-export type SeoRow = SiteSEOModel;
+/** Raw row as stored in Firestore. */
+export interface SeoRow {
+  siteTitle: string;
+  metaTitle: string;
+  metaDescription: string;
+  keywords: string;
+  canonicalUrl: string;
+  ogTitle: string;
+  ogDescription: string;
+  ogImage: string;
+  twitterTitle: string;
+  twitterDescription: string;
+  twitterImage: string;
+  googleAnalyticsId: string;
+  googleTagManagerId: string;
+  googleSiteVerification: string;
+  facebookDomainVerification: string;
+  robotsIndex: boolean;
+  robotsFollow: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 /**
  * Resolve the site's base URL in this order:

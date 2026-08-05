@@ -1,7 +1,6 @@
 import "server-only";
 
-import { Prisma } from "@/generated/prisma/client";
-import { db } from "@/lib/db";
+import { findAll, findById, createDoc, updateDoc, deleteDoc, updateMany, nextId } from "@/lib/firebase/repo";
 import { imageStorage } from "@/lib/uploads/storage";
 import type { BlogData, BlogFilters, BlogListResult, BlogRow } from "./types";
 import { slugifyBlog, type BlogInput } from "./validate";
@@ -21,7 +20,7 @@ function toIsoDate(value: unknown): string | null {
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
-/** Map a Prisma row to the API shape. */
+/** Map a stored row to the API shape. */
 export function rowToBlog(row: BlogRow): BlogData {
   return {
     id: row.id,
@@ -65,80 +64,60 @@ export function toBlogInput(raw: Record<string, unknown>): BlogInput {
   };
 }
 
-const PUBLIC_ORDER: Prisma.BlogPostOrderByWithRelationInput[] = [
-  { featured: "desc" },
-  { displayOrder: "asc" },
-  { id: "asc" },
-];
+function comparePublic(a: BlogRow, b: BlogRow): number {
+  return Number(b.featured) - Number(a.featured) || a.displayOrder - b.displayOrder || a.id - b.id;
+}
+
+function matchesFilters(row: BlogRow, filters: BlogFilters): boolean {
+  const search = filters.search?.trim().toLowerCase();
+  if (search) {
+    const haystack = `${row.title} ${row.excerpt} ${row.category} ${row.tags} ${row.author}`.toLowerCase();
+    if (!haystack.includes(search)) return false;
+  }
+  if (filters.status === "published" && !row.published) return false;
+  if (filters.status === "draft" && row.published) return false;
+  if (filters.featured === "featured" && !row.featured) return false;
+  if (filters.featured === "regular" && row.featured) return false;
+  if (filters.category && row.category !== filters.category) return false;
+  return true;
+}
 
 /** List blog posts with search, status, featured and category filters (admin manager). */
 export async function listBlogs(filters: BlogFilters = {}): Promise<BlogListResult> {
-  const where: Prisma.BlogPostWhereInput = {};
-  if (filters.search) {
-    const search = filters.search.trim();
-    if (search) {
-      where.OR = [
-        { title: { contains: search } },
-        { excerpt: { contains: search } },
-        { category: { contains: search } },
-        { tags: { contains: search } },
-        { author: { contains: search } },
-      ];
-    }
-  }
-  if (filters.status === "published") {
-    where.published = true;
-  } else if (filters.status === "draft") {
-    where.published = false;
-  }
-  if (filters.featured === "featured") {
-    where.featured = true;
-  } else if (filters.featured === "regular") {
-    where.featured = false;
-  }
-  if (filters.category) {
-    where.category = filters.category;
-  }
-
-  const [rows, total, allRows] = await Promise.all([
-    db.blogPost.findMany({ where, orderBy: PUBLIC_ORDER }),
-    db.blogPost.count({ where }),
-    db.blogPost.findMany({ select: { category: true } }),
-  ]);
+  const rows = await findAll<BlogRow>("blogPosts");
+  const filtered = rows.filter((row) => matchesFilters(row, filters));
+  filtered.sort(comparePublic);
 
   const categories = Array.from(
-    new Set(allRows.map((r) => r.category.trim()).filter(Boolean))
+    new Set(rows.map((r) => r.category.trim()).filter(Boolean))
   ).sort((a, b) => a.localeCompare(b));
 
-  return { items: rows.map(rowToBlog), total, categories };
+  return { items: filtered.map(rowToBlog), total: filtered.length, categories };
 }
 
 /** Public posts for `/blog`: published only, featured first, then display order. */
 export async function listPublicBlogs(): Promise<BlogData[]> {
-  const rows = await db.blogPost.findMany({
-    where: { published: true },
-    orderBy: PUBLIC_ORDER,
-  });
-  return rows.map(rowToBlog);
+  const rows = await findAll<BlogRow>("blogPosts");
+  return rows.filter((row) => row.published).sort(comparePublic).map(rowToBlog);
 }
 
 /** Fetch a single published post by slug (null for drafts or missing slugs). */
 export async function getPublishedBlogBySlug(slug: string): Promise<BlogData | null> {
-  const row = await db.blogPost.findFirst({
-    where: { slug, published: true },
-  });
+  const rows = await findAll<BlogRow>("blogPosts");
+  const row = rows.find((r) => r.slug === slug && r.published);
   return row ? rowToBlog(row) : null;
 }
 
 /** Fetch a single post by slug (admin preview — includes drafts). */
 export async function getBlogBySlug(slug: string): Promise<BlogData | null> {
-  const row = await db.blogPost.findUnique({ where: { slug } });
+  const rows = await findAll<BlogRow>("blogPosts");
+  const row = rows.find((r) => r.slug === slug);
   return row ? rowToBlog(row) : null;
 }
 
 /** Fetch a single post by id (admin edit). */
 export async function getBlog(id: number): Promise<BlogData | null> {
-  const row = await db.blogPost.findUnique({ where: { id } });
+  const row = await findById<BlogRow>("blogPosts", id);
   return row ? rowToBlog(row) : null;
 }
 
@@ -146,11 +125,8 @@ export async function getBlog(id: number): Promise<BlogData | null> {
 async function uniqueSlug(base: string): Promise<string> {
   const clean = slugifyBlog(base);
   if (!clean) return `post-${Date.now()}`;
-  const existing = await db.blogPost.findMany({
-    where: { slug: { startsWith: clean } },
-    select: { slug: true },
-  });
-  const taken = new Set(existing.map((e) => e.slug));
+  const rows = await findAll<BlogRow>("blogPosts");
+  const taken = new Set(rows.filter((r) => r.slug.startsWith(clean)).map((r) => r.slug));
   if (!taken.has(clean)) return clean;
   let i = 2;
   while (taken.has(`${clean}-${i}`)) i += 1;
@@ -161,23 +137,22 @@ async function uniqueSlug(base: string): Promise<string> {
 export async function createBlog(data: BlogInput): Promise<BlogData> {
   const slug = await uniqueSlug(data.title);
   const publishedAt = data.published ? data.publishedAt ?? new Date().toISOString() : null;
-  const row = await db.blogPost.create({
-    data: {
-      title: data.title.trim(),
-      slug,
-      excerpt: data.excerpt.trim(),
-      content: data.content,
-      coverImage: data.coverImage.trim(),
-      category: data.category.trim(),
-      tags: data.tags.trim(),
-      author: data.author.trim(),
-      featured: data.featured,
-      published: data.published,
-      publishedAt,
-      displayOrder: data.displayOrder,
-      seoTitle: data.seoTitle.trim(),
-      seoDescription: data.seoDescription.trim(),
-    },
+  const id = await nextId("blogPosts");
+  const row = await createDoc<BlogRow>("blogPosts", id, {
+    title: data.title.trim(),
+    slug,
+    excerpt: data.excerpt.trim(),
+    content: data.content,
+    coverImage: data.coverImage.trim(),
+    category: data.category.trim(),
+    tags: data.tags.trim(),
+    author: data.author.trim(),
+    featured: data.featured,
+    published: data.published,
+    publishedAt: publishedAt ? new Date(publishedAt) : null,
+    displayOrder: data.displayOrder,
+    seoTitle: data.seoTitle.trim(),
+    seoDescription: data.seoDescription.trim(),
   });
   return rowToBlog(row);
 }
@@ -199,31 +174,29 @@ async function removeManagedImage(url: string | null): Promise<void> {
 
 /** Update a blog post. The slug stays stable once assigned. */
 export async function updateBlog(id: number, data: BlogInput): Promise<BlogData> {
-  const previous = await db.blogPost.findUnique({ where: { id } });
+  const previous = await findById<BlogRow>("blogPosts", id);
   if (!previous) throw new BlogNotFoundError(id);
 
   const publishedAt = data.published
     ? data.publishedAt ?? previous.publishedAt?.toISOString() ?? new Date().toISOString()
     : data.publishedAt;
 
-  const row = await db.blogPost.update({
-    where: { id },
-    data: {
-      title: data.title.trim(),
-      excerpt: data.excerpt.trim(),
-      content: data.content,
-      coverImage: data.coverImage.trim(),
-      category: data.category.trim(),
-      tags: data.tags.trim(),
-      author: data.author.trim(),
-      featured: data.featured,
-      published: data.published,
-      publishedAt,
-      displayOrder: data.displayOrder,
-      seoTitle: data.seoTitle.trim(),
-      seoDescription: data.seoDescription.trim(),
-    },
+  const row = await updateDoc<BlogRow>("blogPosts", id, {
+    title: data.title.trim(),
+    excerpt: data.excerpt.trim(),
+    content: data.content,
+    coverImage: data.coverImage.trim(),
+    category: data.category.trim(),
+    tags: data.tags.trim(),
+    author: data.author.trim(),
+    featured: data.featured,
+    published: data.published,
+    publishedAt: publishedAt ? new Date(publishedAt) : null,
+    displayOrder: data.displayOrder,
+    seoTitle: data.seoTitle.trim(),
+    seoDescription: data.seoDescription.trim(),
   });
+  if (!row) throw new BlogNotFoundError(id);
 
   if (previous.coverImage && previous.coverImage !== row.coverImage) {
     await removeManagedImage(previous.coverImage);
@@ -233,20 +206,16 @@ export async function updateBlog(id: number, data: BlogInput): Promise<BlogData>
 
 /** Delete a blog post (and its managed cover image, if any). */
 export async function deleteBlog(id: number): Promise<void> {
-  const previous = await db.blogPost.findUnique({ where: { id } });
+  const previous = await findById<BlogRow>("blogPosts", id);
   if (!previous) throw new BlogNotFoundError(id);
-  await db.blogPost.delete({ where: { id } });
+  await deleteDoc("blogPosts", id);
   await removeManagedImage(previous.coverImage);
 }
 
 /** Persist a drag-and-drop reorder (displayOrder is compacted to 0..n). */
 export async function reorderBlogs(entries: { id: number; displayOrder: number }[]): Promise<void> {
-  await db.$transaction(
-    entries.map((entry) =>
-      db.blogPost.update({
-        where: { id: entry.id },
-        data: { displayOrder: entry.displayOrder },
-      })
-    )
+  await updateMany(
+    "blogPosts",
+    entries.map((entry) => ({ id: entry.id, data: { displayOrder: entry.displayOrder } }))
   );
 }

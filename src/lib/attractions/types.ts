@@ -1,5 +1,3 @@
-import type { AttractionModel } from "@/generated/prisma/models/Attraction";
-
 /** Wire shape returned by the API and used by the attractions manager. */
 export interface AttractionData {
   id: number;
@@ -17,8 +15,22 @@ export interface AttractionData {
   updatedAt: string;
 }
 
-/** Raw row as stored by Prisma. */
-export type AttractionRow = AttractionModel;
+/** Raw row as stored in Firestore. */
+export interface AttractionRow {
+  id: number;
+  name: string;
+  slug: string;
+  description: string;
+  imageUrl: string;
+  mapUrl: string;
+  rating: number;
+  travelTime: string;
+  displayOrder: number;
+  featured: boolean;
+  visible: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 export interface AttractionFilters {
   search?: string;

@@ -1,7 +1,6 @@
 import "server-only";
 
-import { Prisma } from "@/generated/prisma/client";
-import { db } from "@/lib/db";
+import { findAll, findById, createDoc, updateDoc, deleteDoc, nextId } from "@/lib/firebase/repo";
 import { listBranches } from "@/lib/branches/service";
 import { normalizePhone, todayLocalISO, type ReservationInput } from "./validate";
 import {
@@ -20,7 +19,7 @@ function toNumber(value: unknown): number {
   return Number.isInteger(n) ? n : 0;
 }
 
-/** Map a Prisma row to the API shape. */
+/** Map a stored row to the API shape. */
 export function rowToReservation(row: ReservationRow): ReservationData {
   return {
     id: row.id,
@@ -94,118 +93,100 @@ export class DuplicateReservationError extends Error {
   }
 }
 
-/** Create a reservation, assigning its human-facing number inside a transaction. */
+/** Create a reservation, assigning its human-facing number from the shared counter. */
 export async function createReservation(input: ReservationInput): Promise<ReservationData> {
   const phone = normalizePhone(input.phone);
-  const duplicate = await db.reservation.findFirst({
-    where: {
-      phone,
-      date: input.date,
-      time: input.time,
-      status: { in: ["PENDING", "CONFIRMED"] },
-    },
-    select: { id: true },
-  });
+  const rows = await findAll<ReservationRow>("reservations");
+  const duplicate = rows.find(
+    (row) =>
+      row.phone === phone &&
+      row.date === input.date &&
+      row.time === input.time &&
+      (row.status === "PENDING" || row.status === "CONFIRMED")
+  );
   if (duplicate) throw new DuplicateReservationError();
 
-  const row = await db.$transaction(async (tx) => {
-    const created = await tx.reservation.create({
-      data: {
-        number: "",
-        name: input.name.trim(),
-        phone,
-        email: input.email.trim(),
-        branch: input.branch.trim(),
-        guests: input.guests,
-        date: input.date,
-        time: input.time,
-        occasion: input.occasion.trim(),
-        request: input.request.trim(),
-        status: "PENDING",
-        notes: "",
-      },
-    });
-    const number = `KB-${String(created.id).padStart(4, "0")}`;
-    return tx.reservation.update({
-      where: { id: created.id },
-      data: { number },
-    });
+  const id = await nextId("reservations");
+  const number = `KB-${String(id).padStart(4, "0")}`;
+  const row = await createDoc<ReservationRow>("reservations", id, {
+    number,
+    name: input.name.trim(),
+    phone,
+    email: input.email.trim(),
+    branch: input.branch.trim(),
+    guests: input.guests,
+    date: input.date,
+    time: input.time,
+    occasion: input.occasion.trim(),
+    request: input.request.trim(),
+    status: "PENDING",
+    notes: "",
   });
 
   return rowToReservation(row);
 }
 
-const SORT_ORDERS: Record<ReservationSortKey, Prisma.ReservationOrderByWithRelationInput[]> = {
-  newest: [{ createdAt: "desc" }, { id: "desc" }],
-  oldest: [{ createdAt: "asc" }, { id: "asc" }],
-  date: [{ date: "desc" }, { time: "desc" }, { id: "desc" }],
-  guests: [{ guests: "desc" }, { id: "desc" }],
+const SORT_ORDERS: Record<ReservationSortKey, (a: ReservationRow, b: ReservationRow) => number> = {
+  newest: (a, b) => b.createdAt.getTime() - a.createdAt.getTime() || b.id - a.id,
+  oldest: (a, b) => a.createdAt.getTime() - b.createdAt.getTime() || a.id - b.id,
+  date: (a, b) => b.date.localeCompare(a.date) || b.time.localeCompare(a.time) || b.id - a.id,
+  guests: (a, b) => b.guests - a.guests || b.id - a.id,
 };
 
-function searchClause(search: string): Prisma.ReservationWhereInput | undefined {
-  const q = search.trim();
-  if (!q) return undefined;
+/** Normalized search, status and period filters used by the in-memory matcher. */
+export function buildReservationWhere(filters: ReservationFilters): ReservationFilters {
   return {
-    OR: [
-      { name: { contains: q } },
-      { phone: { contains: q } },
-      { email: { contains: q } },
-      { number: { contains: q } },
-      { branch: { contains: q } },
-    ],
+    search: filters.search ?? "",
+    status: filters.status ?? "all",
+    period: filters.period ?? "all",
   };
 }
 
-/** Build the Prisma where clause for search, status and period filters. */
-export function buildReservationWhere(
-  filters: ReservationFilters
-): Prisma.ReservationWhereInput {
-  const where: Prisma.ReservationWhereInput = {};
-
-  const search = searchClause(filters.search ?? "");
-  if (search) where.AND = search;
-
-  if (filters.status && filters.status !== "all") {
-    where.status = filters.status;
+function matchesWhere(row: ReservationRow, where: ReservationFilters): boolean {
+  const search = where.search?.trim().toLowerCase();
+  if (search) {
+    const haystack = `${row.name} ${row.phone} ${row.email} ${row.number} ${row.branch}`.toLowerCase();
+    if (!haystack.includes(search)) return false;
   }
 
   const today = todayLocalISO();
-  if (filters.period === "today") {
-    where.date = today;
-  } else if (filters.period === "upcoming") {
+
+  if (where.period === "upcoming") {
+    if (row.status !== "PENDING" && row.status !== "CONFIRMED") return false;
     const t = nowTime();
-    where.OR = [
-      { date: { gt: today } },
-      { AND: [{ date: today }, { time: { gte: t } }] },
-    ];
-    where.status = { in: ["PENDING", "CONFIRMED"] };
-  } else if (filters.period === "past") {
-    const t = nowTime();
-    where.OR = [
-      { date: { lt: today } },
-      { AND: [{ date: today }, { time: { lt: t } }] },
-    ];
+    return row.date > today || (row.date === today && row.time >= t);
   }
 
-  return where;
+  if (where.status && where.status !== "all" && row.status !== where.status) return false;
+
+  if (where.period === "today") {
+    return row.date === today;
+  }
+  if (where.period === "past") {
+    const t = nowTime();
+    return row.date < today || (row.date === today && row.time < t);
+  }
+  return true;
 }
 
 /** Counts shown on the dashboard cards, always over the full dataset. */
 export async function computeStats(): Promise<ReservationStats> {
   const today = todayLocalISO();
-  const [todayCount, pending, confirmed, completed, cancelled, upcoming] = await Promise.all([
-    db.reservation.count({ where: { date: today } }),
-    db.reservation.count({ where: { status: "PENDING" } }),
-    db.reservation.count({ where: { status: "CONFIRMED" } }),
-    db.reservation.count({ where: { status: "COMPLETED" } }),
-    db.reservation.count({ where: { status: "CANCELLED" } }),
-    db.reservation.count({
-      where: {
-        status: { in: ["PENDING", "CONFIRMED"] },
-        OR: [{ date: { gt: today } }],
-      },
-    }),
-  ]);
+  const rows = await findAll<ReservationRow>("reservations");
+  let todayCount = 0;
+  let pending = 0;
+  let confirmed = 0;
+  let completed = 0;
+  let cancelled = 0;
+  let upcoming = 0;
+  for (const row of rows) {
+    if (row.date === today) todayCount += 1;
+    if (row.status === "PENDING") pending += 1;
+    if (row.status === "CONFIRMED") confirmed += 1;
+    if (row.status === "COMPLETED") completed += 1;
+    if (row.status === "CANCELLED") cancelled += 1;
+    if ((row.status === "PENDING" || row.status === "CONFIRMED") && row.date > today) upcoming += 1;
+  }
   return { today: todayCount, pending, confirmed, completed, cancelled, upcoming };
 }
 
@@ -215,53 +196,45 @@ export async function listReservations(filters: ReservationFilters = {}): Promis
   const pageSize = Math.min(100, Math.max(1, filters.pageSize ?? 24));
 
   const where = buildReservationWhere(filters);
-  const orderBy = SORT_ORDERS[filters.sort ?? "newest"];
+  const rows = await findAll<ReservationRow>("reservations");
+  const filtered = rows.filter((row) => matchesWhere(row, where));
+  filtered.sort(SORT_ORDERS[filters.sort ?? "newest"]);
 
-  const [count, items, stats] = await Promise.all([
-    db.reservation.count({ where }),
-    db.reservation.findMany({
-      where,
-      orderBy,
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-    }),
-    computeStats(),
-  ]);
+  const total = filtered.length;
+  const items = filtered.slice((page - 1) * pageSize, page * pageSize).map(rowToReservation);
 
   return {
-    items: items.map(rowToReservation),
-    total: count,
+    items,
+    total,
     page,
     pageSize,
-    totalPages: Math.max(1, Math.ceil(count / pageSize)),
-    stats,
+    totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    stats: await computeStats(),
   };
 }
 
 export async function getReservation(id: number): Promise<ReservationData> {
-  const row = await db.reservation.findUnique({ where: { id } });
+  const row = await findById<ReservationRow>("reservations", id);
   if (!row) throw new ReservationNotFoundError(id);
   return rowToReservation(row);
 }
 
 /** Full admin edit of a reservation's booking fields. */
 export async function updateReservation(id: number, input: ReservationInput): Promise<ReservationData> {
-  const previous = await db.reservation.findUnique({ where: { id } });
+  const previous = await findById<ReservationRow>("reservations", id);
   if (!previous) throw new ReservationNotFoundError(id);
-  const row = await db.reservation.update({
-    where: { id },
-    data: {
-      name: input.name.trim(),
-      phone: normalizePhone(input.phone),
-      email: input.email.trim(),
-      branch: input.branch.trim(),
-      guests: input.guests,
-      date: input.date,
-      time: input.time,
-      occasion: input.occasion.trim(),
-      request: input.request.trim(),
-    },
+  const row = await updateDoc<ReservationRow>("reservations", id, {
+    name: input.name.trim(),
+    phone: normalizePhone(input.phone),
+    email: input.email.trim(),
+    branch: input.branch.trim(),
+    guests: input.guests,
+    date: input.date,
+    time: input.time,
+    occasion: input.occasion.trim(),
+    request: input.request.trim(),
   });
+  if (!row) throw new ReservationNotFoundError(id);
   return rowToReservation(row);
 }
 
@@ -270,32 +243,31 @@ export async function updateReservation(id: number, input: ReservationInput): Pr
  * cancelledAt timestamp is set the first time and never overwritten.
  */
 export async function updateReservationStatus(id: number, status: ReservationStatus): Promise<ReservationData> {
-  const previous = await db.reservation.findUnique({ where: { id } });
+  const previous = await findById<ReservationRow>("reservations", id);
   if (!previous) throw new ReservationNotFoundError(id);
 
+  const data: Record<string, unknown> = { status };
   const now = new Date();
-  const data: Prisma.ReservationUpdateInput = { status };
   if (status === "CONFIRMED" && !previous.confirmedAt) data.confirmedAt = now;
   if (status === "COMPLETED" && !previous.completedAt) data.completedAt = now;
   if (status === "CANCELLED" && !previous.cancelledAt) data.cancelledAt = now;
 
-  const row = await db.reservation.update({ where: { id }, data });
+  const row = await updateDoc<ReservationRow>("reservations", id, data);
+  if (!row) throw new ReservationNotFoundError(id);
   return rowToReservation(row);
 }
 
 /** Replace the admin-only internal notes. */
 export async function updateReservationNotes(id: number, notes: string): Promise<ReservationData> {
-  const previous = await db.reservation.findUnique({ where: { id } });
+  const previous = await findById<ReservationRow>("reservations", id);
   if (!previous) throw new ReservationNotFoundError(id);
-  const row = await db.reservation.update({
-    where: { id },
-    data: { notes: notes.trim() },
-  });
+  const row = await updateDoc<ReservationRow>("reservations", id, { notes: notes.trim() });
+  if (!row) throw new ReservationNotFoundError(id);
   return rowToReservation(row);
 }
 
 export async function deleteReservation(id: number): Promise<void> {
-  const previous = await db.reservation.findUnique({ where: { id } });
+  const previous = await findById<ReservationRow>("reservations", id);
   if (!previous) throw new ReservationNotFoundError(id);
-  await db.reservation.delete({ where: { id } });
+  await deleteDoc("reservations", id);
 }

@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
 
 const REQUIRED_ENV_VARS = [
-  "DATABASE_URL",
+  "FIREBASE_PROJECT_ID",
+  "FIREBASE_CLIENT_EMAIL",
+  "FIREBASE_PRIVATE_KEY",
   "ADMIN_EMAIL",
   "ADMIN_PASSWORD",
   "ADMIN_JWT_SECRET",

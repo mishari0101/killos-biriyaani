@@ -1,8 +1,8 @@
 import "server-only";
 
-import { mkdir, unlink, writeFile } from "node:fs/promises";
-import path from "node:path";
 import { randomUUID } from "node:crypto";
+import { mkdir, rm, writeFile } from "node:fs/promises";
+import path from "node:path";
 
 export interface StoredImage {
   url: string;
@@ -12,10 +12,10 @@ export interface StoredImage {
 /**
  * Storage seam for uploaded images.
  *
- * The rest of the app (menu UI + menu service) only ever works with the
- * returned `url` strings, so the local implementation below can later be
- * replaced by an S3-compatible one (implement the same `ImageStorage`
- * interface and swap the factory) without touching any UI.
+ * The rest of the app (upload route + services) only ever works with the
+ * returned `url` strings, so the backend can be swapped without touching UI.
+ * This driver stores files on the local filesystem under `public/uploads/`
+ * and returns relative `/uploads/...` URLs served by the app.
  */
 export interface ImageStorage {
   save(folder: string, buffer: Buffer, extension: string): Promise<StoredImage>;
@@ -26,39 +26,65 @@ export interface ImageStorage {
   urlToKey(url: string): string | null;
 }
 
-const UPLOADS_ROOT = path.join(process.cwd(), "public", "uploads");
+/** Absolute path of the local uploads root (`<cwd>/public/uploads`). */
+export const UPLOADS_ROOT = path.join(process.cwd(), "public", "uploads");
 
-/** Public URL prefix for served uploads (route handler in app/api/uploads/file). */
-const UPLOADS_URL_PREFIX = "/api/uploads/file/";
+export const MIME_BY_EXT: Record<string, string> = {
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+};
+
+const PUBLIC_URL_PREFIX = "/uploads/";
+const FOLDER_RE = /^[a-zA-Z0-9_-]+$/;
+const KEY_RE = /^[a-zA-Z0-9_-]+\/[a-zA-Z0-9-_.]+$/;
+
+/** Resolve a storage key to an absolute path inside UPLOADS_ROOT, or null. */
+function resolveWithinRoot(key: string): string | null {
+  if (!key || key.includes("\\") || key.includes("..")) return null;
+  const normalized = path.normalize(key);
+  if (normalized.startsWith("/") || normalized.startsWith("..")) return null;
+  const target = path.join(UPLOADS_ROOT, normalized);
+  if (target !== UPLOADS_ROOT && !target.startsWith(UPLOADS_ROOT + path.sep)) return null;
+  return target;
+}
 
 function localImageStorage(): ImageStorage {
   return {
     async save(folder, buffer, extension) {
+      if (!FOLDER_RE.test(folder)) {
+        throw new Error(`Invalid upload folder: ${folder}`);
+      }
+      if (!MIME_BY_EXT[extension]) {
+        throw new Error(`Unsupported image extension: ${extension}`);
+      }
+      const filename = `${Date.now()}-${randomUUID().slice(0, 12)}.${extension}`;
       const dir = path.join(UPLOADS_ROOT, folder);
       await mkdir(dir, { recursive: true });
-      const name = `${Date.now()}-${randomUUID().slice(0, 12)}.${extension}`;
-      const key = `${folder}/${name}`;
-      await writeFile(path.join(dir, name), buffer);
-      return { url: `${UPLOADS_URL_PREFIX}${key}`, key };
+      await writeFile(path.join(dir, filename), buffer);
+      const key = `${folder}/${filename}`;
+      return { url: PUBLIC_URL_PREFIX + key, key };
     },
 
     async delete(key) {
-      const normalized = path.normalize(key);
-      if (normalized.startsWith("..") || path.isAbsolute(normalized)) return;
-      const filePath = path.join(UPLOADS_ROOT, normalized);
-      await unlink(filePath).catch(() => {});
+      if (!KEY_RE.test(key)) return;
+      const target = resolveWithinRoot(key);
+      if (!target) return;
+      await rm(target, { force: true });
     },
 
     isManagedUrl(url) {
-      return url.startsWith(UPLOADS_URL_PREFIX);
+      return url.startsWith(PUBLIC_URL_PREFIX);
     },
 
     urlToKey(url) {
-      if (!url.startsWith(UPLOADS_URL_PREFIX)) return null;
-      return url.slice(UPLOADS_URL_PREFIX.length);
+      if (!url.startsWith(PUBLIC_URL_PREFIX)) return null;
+      const key = url.slice(PUBLIC_URL_PREFIX.length).split("?")[0];
+      if (!key || !KEY_RE.test(key)) return null;
+      return key;
     },
   };
 }
 
-// Swap this factory (e.g. env-driven S3 driver) to change storage backends.
 export const imageStorage: ImageStorage = localImageStorage();

@@ -1,4 +1,35 @@
-import type { RestaurantSettingsModel } from "@/generated/prisma/models/RestaurantSettings";
+/** Raw row as stored in Firestore (includes the single-owner admin account). */
+export interface SettingsRow {
+  restaurantName: string;
+  tagline: string;
+  shortDescription: string;
+  longDescription: string;
+  logoUrl: string;
+  faviconUrl: string;
+  primaryPhone: string;
+  secondaryPhone: string;
+  whatsappNumber: string;
+  email: string;
+  businessHours: unknown;
+  socialMedia: unknown;
+  metaTitle: string;
+  metaDescription: string;
+  keywords: string;
+  ogImageUrl: string;
+  darkModeDefault: boolean;
+  accentColor: string;
+  primaryColor: string;
+  secondaryColor: string;
+  mapsEmbedUrl: string;
+  latitude: number;
+  longitude: number;
+  adminName: string;
+  adminEmail: string;
+  adminPasswordHash: string;
+  lastLoginAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 export type DayKey =
   | "monday"
@@ -67,9 +98,6 @@ export interface SettingsData {
   // meta
   updatedAt: string | null;
 }
-
-/** Raw row as stored by Prisma. */
-export type SettingsRow = RestaurantSettingsModel;
 
 export const DAYS: DayKey[] = [
   "monday",
