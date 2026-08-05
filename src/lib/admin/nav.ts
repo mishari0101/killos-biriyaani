@@ -11,7 +11,7 @@ import {
   TagIcon,
   UtensilsIcon,
   GlobeIcon,
-  UsersIcon,
+  UserIcon,
 } from "@/components/ui/icons";
 import type { ComponentType } from "react";
 
@@ -113,11 +113,11 @@ export const adminNavSections: AdminNavSection[] = [
     title: "System",
     items: [
       {
-        label: "Users",
-        href: "/admin/users",
-        icon: UsersIcon,
-        description: "Admin accounts & roles",
-        status: "planned",
+        label: "Account",
+        href: "/admin/account",
+        icon: UserIcon,
+        description: "Profile, password & sign-in",
+        status: "active",
       },
       {
         label: "SEO",

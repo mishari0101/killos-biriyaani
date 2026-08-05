@@ -6,7 +6,9 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 function createClient() {
-  const adapter = new PrismaMariaDb(process.env.DATABASE_URL ?? "");
+  const url = new URL(process.env.DATABASE_URL ?? "");
+  url.searchParams.set("allowPublicKeyRetrieval", "true");
+  const adapter = new PrismaMariaDb(url.toString());
   return new PrismaClient({ adapter });
 }
 

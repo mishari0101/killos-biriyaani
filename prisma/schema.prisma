@@ -49,6 +49,12 @@ model RestaurantSettings {
   latitude        Float    @default(0)
   longitude       Float    @default(0)
 
+  // 8 — Admin Account (single-owner sign-in; seeded from env on first login)
+  adminName        String    @default("") @db.VarChar(120)
+  adminEmail       String    @default("") @db.VarChar(160)
+  adminPasswordHash String   @default("") @db.VarChar(512)
+  lastLoginAt      DateTime?
+
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }
@@ -93,7 +99,7 @@ model MenuCategory {
 model GalleryItem {
   id           Int      @id @default(autoincrement())
   title        String   @db.VarChar(160)
-  description  String   @default("") @db.Text
+  description  String   @db.Text
   imageUrl     String   @default("") @db.VarChar(500)
   aspect       String   @default("4 / 3") @db.VarChar(24)
   displayOrder Int      @default(0)
@@ -114,7 +120,7 @@ model Attraction {
   id           Int      @id @default(autoincrement())
   name         String   @db.VarChar(160)
   slug         String   @unique @db.VarChar(160)
-  description  String   @default("") @db.Text
+  description  String   @db.Text
   imageUrl     String   @default("") @db.VarChar(500)
   mapUrl       String   @default("") @db.VarChar(1000)
   rating       Decimal  @default(0) @db.Decimal(2, 1)
@@ -171,7 +177,7 @@ model Branch {
   whatsapp       String   @default("") @db.VarChar(40)
   email          String   @default("") @db.VarChar(160)
   hours          Json
-  description    String   @default("") @db.Text
+  description    String   @db.Text
   displayOrder   Int      @default(0)
   featured       Boolean  @default(false)
   visible        Boolean  @default(true)
@@ -198,7 +204,7 @@ model ContactMessage {
   message   String   @db.Text
   branch    String   @default("") @db.VarChar(160)
   status    String   @default("NEW") @db.VarChar(20)
-  notes     String   @default("") @db.Text
+  notes     String   @db.Text
   repliedAt DateTime?
   closedAt  DateTime?
   createdAt DateTime @default(now())
@@ -227,9 +233,9 @@ model Reservation {
   date        String   @db.VarChar(10)
   time        String   @db.VarChar(5)
   occasion    String   @default("") @db.VarChar(80)
-  request     String   @default("") @db.Text
+  request     String   @db.Text
   status      String   @default("PENDING") @db.VarChar(20)
-  notes       String   @default("") @db.Text
+  notes       String   @db.Text
   confirmedAt DateTime?
   completedAt DateTime?
   cancelledAt DateTime?

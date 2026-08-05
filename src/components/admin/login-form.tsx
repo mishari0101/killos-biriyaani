@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { LockIcon, ArrowRightLongIcon, CheckIcon } from "@/components/ui/icons";
+import { LockIcon, ArrowRightLongIcon, CheckIcon, CheckCircleIcon } from "@/components/ui/icons";
 
 export function AdminLoginForm() {
   const router = useRouter();
@@ -46,8 +46,25 @@ export function AdminLoginForm() {
     }
   }
 
+  const passwordChanged = searchParams.get("changed") === "1";
+
   return (
-    <form onSubmit={handleSubmit} noValidate>
+    <>
+      {passwordChanged && (
+        <div
+          role="status"
+          className="mb-4 flex items-start gap-2.5 rounded-xl border border-[rgba(46,125,50,0.35)] bg-[rgba(46,125,50,0.08)] px-4 py-3 text-[0.82rem] text-[var(--admin-fg)]"
+        >
+          <CheckCircleIcon
+            size={16}
+            className="mt-0.5 shrink-0 text-[rgba(46,125,50,0.9)]"
+          />
+          <span>
+            Password changed. Sign in again with your new password.
+          </span>
+        </div>
+      )}
+      <form onSubmit={handleSubmit} noValidate>
       <div className="space-y-5">
         <div>
           <label
@@ -171,5 +188,6 @@ export function AdminLoginForm() {
         Secured with HttpOnly sessions
       </div>
     </form>
+    </>
   );
 }

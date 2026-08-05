@@ -1,4 +1,4 @@
-import { verifyCredentials, toSessionPayload, type AdminUser } from "@/lib/auth/service";
+import { verifyCredentials, recordAdminLogin, toSessionPayload, type AdminUser } from "@/lib/auth/service";
 import { createSession } from "@/lib/auth/session";
 import {
   clientIp,
@@ -83,6 +83,7 @@ export async function POST(request: Request) {
   }
 
   resetRateLimit(key);
+  await recordAdminLogin();
   await createSession(toSessionPayload(user));
 
   return Response.json(
