@@ -1,4 +1,10 @@
-import { verifyCredentials, recordAdminLogin, toSessionPayload, type AdminUser } from "@/lib/auth/service";
+import {
+  AdminStoreError,
+  verifyCredentials,
+  recordAdminLogin,
+  toSessionPayload,
+  type AdminUser,
+} from "@/lib/auth/service";
 import { createSession } from "@/lib/auth/session";
 import {
   clientIp,
@@ -64,7 +70,16 @@ export async function POST(request: Request) {
   let user: AdminUser | null = null;
   try {
     user = await verifyCredentials(email, password);
-  } catch {
+  } catch (error) {
+    if (error instanceof AdminStoreError) {
+      return Response.json(
+        {
+          ok: false,
+          error: "Could not reach the database. Check the Firebase configuration on the server.",
+        },
+        { status: 500, headers: NO_STORE }
+      );
+    }
     return Response.json(
       { ok: false, error: "Authentication is not configured on this server." },
       { status: 500, headers: NO_STORE }
