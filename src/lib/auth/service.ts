@@ -25,16 +25,6 @@ export class AdminNotConfiguredError extends Error {
   }
 }
 
-/** Thrown when the Firestore-backed admin account store fails to load. */
-export class AdminStoreError extends Error {
-  readonly cause?: unknown;
-  constructor(message: string, cause?: unknown) {
-    super(message);
-    this.name = "AdminStoreError";
-    this.cause = cause;
-  }
-}
-
 /**
  * Env-based bootstrap credentials. They seed the DB-backed admin account on the
  * first sign-in and remain required as a configuration gate: missing environment
@@ -139,8 +129,7 @@ export async function verifyCredentials(
     account = await loadAdminAccount();
   } catch (error) {
     if (error instanceof AdminNotConfiguredError) throw error;
-    if (error instanceof AdminStoreError) throw error;
-    throw new AdminStoreError("The admin account store is unavailable.", error);
+    return null;
   }
   if (!email || !password) return null;
   if (!constantTimeEqual(email.toLowerCase(), account.email.toLowerCase())) return null;
