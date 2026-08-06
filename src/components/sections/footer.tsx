@@ -357,15 +357,7 @@ export function Footer({ branchContact }: { branchContact?: BranchFooterContact 
           </ul>
 
           <p className="flex flex-wrap items-center justify-center gap-1.5 text-[0.8rem] font-normal tracking-[0.02em] text-[var(--fg-muted)]">
-            Designed &amp; Developed by
-            <a
-              href={data.credit.href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="footer-link font-medium text-[var(--fg)]"
-            >
-              {data.credit.label}
-            </a>
+            Developed by FluxMedia
           </p>
         </div>
       </div>
