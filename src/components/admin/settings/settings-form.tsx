@@ -16,7 +16,7 @@ import { SectionCard } from "./section-card";
 import { Toast, type ToastState } from "./toast";
 import type { SettingsData, SocialKey } from "@/lib/settings/types";
 import { DAY_LABELS, DAYS } from "@/lib/settings/types";
-import { validateSettings, type SettingsErrors } from "@/lib/settings/validate";
+import { validateSettings, type SettingsErrors, type SocialMediaErrorKey } from "@/lib/settings/validate";
 
 interface SettingsFormProps {
   initialSettings: SettingsData;
@@ -74,6 +74,13 @@ export function SettingsForm({ initialSettings }: SettingsFormProps) {
       ...f,
       socialMedia: { ...f.socialMedia, [key]: { ...f.socialMedia[key], ...partial } },
     }));
+    setErrors((e) => {
+      const errorKey = `socialMedia_${key}` as SocialMediaErrorKey;
+      if (!(errorKey in e)) return e;
+      const next = { ...e };
+      delete next[errorKey];
+      return next;
+    });
   }, []);
 
   const handleSave = useCallback(async () => {
@@ -297,6 +304,9 @@ export function SettingsForm({ initialSettings }: SettingsFormProps) {
           <div className="space-y-4">
             {MANAGED_SOCIALS.map((key) => {
               const social = form.socialMedia[key];
+              const socialError = showErrors
+                ? errors[`socialMedia_${key}` as SocialMediaErrorKey]
+                : undefined;
               return (
                 <div
                   key={key}
@@ -321,10 +331,16 @@ export function SettingsForm({ initialSettings }: SettingsFormProps) {
                       onChange={(e) => patchSocial(key, { url: e.target.value })}
                       placeholder="https://…"
                       disabled={!social.enabled}
+                      aria-invalid={!!socialError}
                       className={`admin-input px-3 py-2 text-[0.8rem] ${
                         social.enabled ? "" : "opacity-40"
-                      }`}
+                      } ${socialError ? "admin-input-error" : ""}`}
                     />
+                    {socialError && (
+                      <p className="admin-field-error mt-1.5" role="alert">
+                        {socialError}
+                      </p>
+                    )}
                   </div>
                 </div>
               );

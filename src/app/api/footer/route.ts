@@ -1,8 +1,46 @@
-import { seedFooter, type FooterContent } from "@/lib/content/footer";
+import { seedFooter, type FooterContent, type FooterSocial } from "@/lib/content/footer";
+import { waHref } from "@/lib/contact";
+import { getSettings } from "@/lib/settings/service";
+import { isValidUrl } from "@/lib/settings/validate";
 
 export const dynamic = "force-dynamic";
 
 const NO_STORE = { "Cache-Control": "no-store" };
+
+const SOCIAL_LABELS: Record<string, string> = {
+  facebook: "Facebook",
+  instagram: "Instagram",
+  tiktok: "TikTok",
+  whatsapp: "WhatsApp",
+};
+
+const MANAGED_SOCIAL_KEYS = ["facebook", "instagram", "tiktok"] as const;
+
+/** Social links come from the settings store (single source of truth). No hardcoded URLs. */
+async function settingsSocials(): Promise<FooterSocial[]> {
+  const settings = await getSettings();
+  const socials: FooterSocial[] = [];
+
+  for (const key of MANAGED_SOCIAL_KEYS) {
+    const social = settings.socialMedia[key];
+    const url = social?.url?.trim() ?? "";
+    if (social?.enabled && url && isValidUrl(url)) {
+      socials.push({ id: key, label: SOCIAL_LABELS[key], href: url, enabled: true });
+    }
+  }
+
+  const whatsapp = settings.whatsappNumber?.trim();
+  if (whatsapp) {
+    socials.push({
+      id: "whatsapp",
+      label: SOCIAL_LABELS.whatsapp,
+      href: waHref(whatsapp),
+      enabled: true,
+    });
+  }
+
+  return socials;
+}
 
 function str(v: unknown, fallback: string): string {
   return typeof v === "string" && v.trim() ? v.trim() : fallback;
@@ -45,9 +83,10 @@ function links(v: unknown): FooterContent["quickLinks"] | null {
 
 export async function GET() {
   const url = process.env.FOOTER_API_URL;
+  const socials = await settingsSocials();
 
   if (!url) {
-    return Response.json(seedFooter, { headers: NO_STORE });
+    return Response.json({ ...seedFooter, socials }, { headers: NO_STORE });
   }
 
   try {
@@ -73,7 +112,7 @@ export async function GET() {
       name: str(body.name, seedFooter.name),
       tagline: str(body.tagline, seedFooter.tagline),
       description: str(body.description, seedFooter.description),
-      socials: links(body.socials) ?? seedFooter.socials,
+      socials,
       quickLinks: links(body.quickLinks) ?? seedFooter.quickLinks,
       phones: strList(body.phones, seedFooter.phones),
       hoursNote: str(body.hoursNote, seedFooter.hoursNote),
@@ -105,6 +144,6 @@ export async function GET() {
     return Response.json(footer, { headers: NO_STORE });
   } catch (error) {
     console.error("[api/footer]", error);
-    return Response.json(seedFooter, { headers: NO_STORE });
+    return Response.json({ ...seedFooter, socials }, { headers: NO_STORE });
   }
 }

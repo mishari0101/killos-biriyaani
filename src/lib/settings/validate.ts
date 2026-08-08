@@ -1,6 +1,17 @@
-import { DAYS, type SettingsData } from "./types";
+import { DAYS, type SettingsData, type SocialKey } from "./types";
 
-export type SettingsErrors = Partial<Record<keyof SettingsData, string>>;
+export type SocialMediaErrorKey = `socialMedia_${SocialKey}`;
+
+export type SettingsErrors = Partial<
+  Record<keyof SettingsData | SocialMediaErrorKey, string>
+>;
+
+/** Platforms the admin manages (and therefore validates) in Settings → Social Media. */
+export const MANAGED_SOCIAL_KEYS: SocialKey[] = [
+  "facebook",
+  "instagram",
+  "tiktok",
+];
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const PHONE_RE = /^\+?[0-9 ()-]{7,20}$/;
@@ -122,6 +133,18 @@ export function validateSettings(data: SettingsData): SettingsErrors {
 
   if (data.ogImageUrl.trim() && !isValidUrl(data.ogImageUrl)) {
     errors.ogImageUrl = "Enter a valid URL.";
+  }
+
+  for (const key of MANAGED_SOCIAL_KEYS) {
+    const social = data.socialMedia[key];
+    if (!social || !social.enabled) continue;
+    const url = social.url.trim();
+    if (!url) {
+      errors[`socialMedia_${key}` as SocialMediaErrorKey] =
+        "Enter a URL for the enabled platform.";
+    } else if (!isValidUrl(url)) {
+      errors[`socialMedia_${key}` as SocialMediaErrorKey] = "Enter a valid URL.";
+    }
   }
 
   if (!Number.isFinite(data.latitude) || data.latitude < -90 || data.latitude > 90) {

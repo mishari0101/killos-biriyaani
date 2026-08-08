@@ -48,32 +48,7 @@ export const seedFooter: FooterContent = {
   tagline: "Authentic Arabian Restaurant",
   description:
     "Experience authentic Arabian and South Asian flavours crafted with premium ingredients, rich spices and warm hospitality.",
-  socials: [
-    {
-      id: "facebook",
-      label: "Facebook",
-      href: "https://www.facebook.com/killosbiriyani",
-      enabled: true,
-    },
-    {
-      id: "instagram",
-      label: "Instagram",
-      href: "https://www.instagram.com/killosbiriyani",
-      enabled: true,
-    },
-    {
-      id: "tiktok",
-      label: "TikTok",
-      href: "https://www.tiktok.com/@killosbiriyani",
-      enabled: true,
-    },
-    {
-      id: "whatsapp",
-      label: "WhatsApp",
-      href: "https://wa.me/94766636373",
-      enabled: true,
-    },
-  ],
+  socials: [],
   quickLinks: [
     { id: "home", label: "Home", href: "#home", enabled: true },
     { id: "about", label: "About", href: "#about", enabled: true },

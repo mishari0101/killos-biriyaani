@@ -111,13 +111,22 @@ export function Footer({ branchContact }: { branchContact?: BranchFooterContact 
     if (valid) setEmail("");
   };
 
-  const socials = data.socials
-    .filter((s) => s.enabled)
-    .map((s) =>
-      s.id === "whatsapp" && branchContact?.whatsappHref
-        ? { ...s, href: branchContact.whatsappHref }
-        : s
-    );
+  const baseSocials = data.socials.filter(
+    (s) => s.enabled && s.href?.trim()
+  );
+
+  // Merge WhatsApp: branch contact takes priority, then settings from API
+  const whatsappHref =
+    branchContact?.whatsappHref ??
+    baseSocials.find((s) => s.id === "whatsapp")?.href ??
+    "";
+
+  const socials = [
+    ...baseSocials.filter((s) => s.id !== "whatsapp"),
+    ...(whatsappHref
+      ? [{ id: "whatsapp", label: "WhatsApp", href: whatsappHref, enabled: true }]
+      : []),
+  ];
   const quickLinks = data.quickLinks.filter((l) => l.enabled);
   const policyLinks = data.policyLinks.filter((l) => l.enabled);
 
