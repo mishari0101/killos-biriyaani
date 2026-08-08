@@ -177,7 +177,7 @@ export function MenuItemForm({ mode, item, categories, onClose, onSave }: MenuIt
                 </Field>
               </div>
 
-              <div>
+              <div className="sm:col-span-2">
                 <TextInput
                   id="menu-price"
                   label="Price (RS)"
@@ -189,18 +189,6 @@ export function MenuItemForm({ mode, item, categories, onClose, onSave }: MenuIt
                   placeholder="12.00"
                   error={showErrors ? errors.price : undefined}
                   hint="Required — e.g. 12.00"
-                />
-              </div>
-
-              <div>
-                <TextInput
-                  id="menu-order"
-                  label="Display Order"
-                  type="number"
-                  value={form.displayOrder === 0 ? "0" : String(form.displayOrder)}
-                  onChange={(v) => patch("displayOrder", Number(v))}
-                  error={showErrors ? errors.displayOrder : undefined}
-                  hint="Lower numbers appear first."
                 />
               </div>
             </div>
