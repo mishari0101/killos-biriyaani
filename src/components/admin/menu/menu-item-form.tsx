@@ -180,7 +180,7 @@ export function MenuItemForm({ mode, item, categories, onClose, onSave }: MenuIt
               <div>
                 <TextInput
                   id="menu-price"
-                  label="Price (LKR)"
+                  label="Price (RS)"
                   type="number"
                   inputMode="decimal"
                   step="0.01"

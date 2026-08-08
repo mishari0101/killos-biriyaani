@@ -84,7 +84,7 @@ export function MenuTable({ items, loading, onEdit, onDelete, onToggle }: MenuTa
               <div>
                 <span className="admin-table-th mb-1 block md:hidden">Price</span>
                 <span className="text-[0.92rem] font-semibold tabular-nums text-[var(--admin-fg)]">
-                  SR {formatPrice(item.price)}
+                  RS {formatPrice(item.price)}
                 </span>
               </div>
 
