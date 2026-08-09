@@ -9,6 +9,43 @@ export interface StoredImage {
   key: string;
 }
 
+/** Base error for image storage failures so callers can surface the real cause. */
+export class ImageStorageError extends Error {}
+
+/** The image host is not configured (e.g. IMGBB_API_KEY missing). */
+export class ImageStorageConfigError extends ImageStorageError {}
+
+/** The image host rejected the upload or delete request. */
+export class ImageStorageHostError extends ImageStorageError {}
+
+/** The image host did not answer in time. */
+export class ImageStorageTimeoutError extends ImageStorageError {}
+
+/** The image host could not be reached (DNS/connection failure). */
+export class ImageStorageNetworkError extends ImageStorageError {}
+
+/** Normalize an underlying fetch/network failure into a typed storage error. */
+function toStorageError(error: unknown): ImageStorageError {
+  const name = (error as { name?: string })?.name ?? "";
+  const code =
+    ((error as { code?: string })?.code ?? "") ||
+    ((error as { cause?: { code?: string } })?.cause?.code ?? "");
+  if (name === "TimeoutError" || name === "AbortError" || code === "ETIMEDOUT") {
+    return new ImageStorageTimeoutError(
+      "The image host timed out. Please try again."
+    );
+  }
+  if (
+    name === "TypeError" ||
+    /^(ENOTFOUND|EAI_AGAIN|ECONNREFUSED|ECONNRESET|ENETUNREACH|EHOSTUNREACH)$/.test(code)
+  ) {
+    return new ImageStorageNetworkError(
+      "Could not reach the image host. Check the server's outbound network access."
+    );
+  }
+  return new ImageStorageNetworkError("The image host request failed. Please try again.");
+}
+
 /**
  * Storage seam for uploaded images.
  *
@@ -49,7 +86,7 @@ const IMGBB_HOSTS = new Set(["i.ibb.co", "ibb.co", "imgbb.com"]);
 
 const IMGBB_UPLOAD_ENDPOINT = "https://api.imgbb.com/1/upload";
 const IMGBB_DELETE_ENDPOINT = "https://ibb.co/json";
-const IMGBB_REQUEST_TIMEOUT_MS = 30_000;
+const IMGBB_REQUEST_TIMEOUT_MS = 60_000;
 
 /** Resolve a local storage key to an absolute path inside UPLOADS_ROOT, or null. */
 function resolveWithinRoot(key: string): string | null {
@@ -128,9 +165,13 @@ function imgbbImageStorage(): ImageStorage {
       if (!MIME_BY_EXT[extension]) {
         throw new Error(`Unsupported image extension: ${extension}`);
       }
-      const apiKey = process.env.IMGBB_API_KEY;
+      const apiKey = (process.env.IMGBB_API_KEY ?? "")
+        .trim()
+        .replace(/^["']|["']$/g, "");
       if (!apiKey) {
-        throw new Error("ImgBB is not configured. Set IMGBB_API_KEY in the server environment.");
+        throw new ImageStorageConfigError(
+          "ImgBB is not configured on this server (IMGBB_API_KEY is missing)."
+        );
       }
 
       const form = new FormData();
@@ -138,11 +179,17 @@ function imgbbImageStorage(): ImageStorage {
       form.set("image", buffer.toString("base64"));
       form.set("name", `${folder}-${Date.now()}-${randomUUID().slice(0, 8)}`);
 
-      const res = await fetch(IMGBB_UPLOAD_ENDPOINT, {
-        method: "POST",
-        body: form,
-        signal: AbortSignal.timeout(IMGBB_REQUEST_TIMEOUT_MS),
-      });
+      let res: Response;
+      try {
+        res = await fetch(IMGBB_UPLOAD_ENDPOINT, {
+          method: "POST",
+          body: form,
+          signal: AbortSignal.timeout(IMGBB_REQUEST_TIMEOUT_MS),
+        });
+      } catch (error) {
+        throw toStorageError(error);
+      }
+
       const payload = (await res.json().catch(() => null)) as {
         data?: { url?: string; delete_url?: string };
         error?: { message?: string };
@@ -150,7 +197,8 @@ function imgbbImageStorage(): ImageStorage {
       } | null;
 
       if (!res.ok || !payload?.success || !payload.data?.url || !payload.data.delete_url) {
-        throw new Error(payload?.error?.message ?? "ImgBB upload failed.");
+        const reason = payload?.error?.message ?? `ImgBB returned HTTP ${res.status}.`;
+        throw new ImageStorageHostError(reason);
       }
 
       return { url: payload.data.url, key: payload.data.delete_url };

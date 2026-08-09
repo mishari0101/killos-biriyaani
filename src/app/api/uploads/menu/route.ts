@@ -1,5 +1,11 @@
 import { getSession } from "@/lib/auth/session";
-import { imageStorage } from "@/lib/uploads/storage";
+import {
+  ImageStorageConfigError,
+  ImageStorageHostError,
+  ImageStorageNetworkError,
+  ImageStorageTimeoutError,
+  imageStorage,
+} from "@/lib/uploads/storage";
 import { IMAGE_EXT_BY_MIME, MAX_IMAGE_SIZE, sniffImageType } from "@/lib/uploads/validate";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +19,29 @@ function resolveFolder(request: Request): string {
   const folder = new URL(request.url).searchParams.get("folder");
   if (folder && ALLOWED_FOLDERS.has(folder)) return folder;
   return "menu";
+}
+
+/** Map a storage failure to a useful HTTP response (never a vague generic). */
+function storageFailure(error: unknown, operation: "upload" | "delete"): Response {
+  if (error instanceof ImageStorageConfigError) {
+    return Response.json({ ok: false, error: error.message }, { status: 500, headers: NO_STORE });
+  }
+  if (error instanceof ImageStorageTimeoutError) {
+    return Response.json({ ok: false, error: error.message }, { status: 504, headers: NO_STORE });
+  }
+  if (error instanceof ImageStorageNetworkError) {
+    return Response.json({ ok: false, error: error.message }, { status: 502, headers: NO_STORE });
+  }
+  if (error instanceof ImageStorageHostError) {
+    return Response.json(
+      { ok: false, error: `The image host rejected the ${operation}: ${error.message}` },
+      { status: 502, headers: NO_STORE }
+    );
+  }
+  return Response.json(
+    { ok: false, error: "Could not save the image. Please try again." },
+    { status: 500, headers: NO_STORE }
+  );
 }
 
 export async function POST(request: Request) {
@@ -75,10 +104,7 @@ export async function POST(request: Request) {
     return Response.json({ ok: true, url, key }, { status: 201, headers: NO_STORE });
   } catch (error) {
     console.error("POST /api/uploads/menu failed:", error);
-    return Response.json(
-      { ok: false, error: "Could not save the image." },
-      { status: 500, headers: NO_STORE }
-    );
+    return storageFailure(error, "upload");
   }
 }
 
@@ -98,9 +124,6 @@ export async function DELETE(request: Request) {
     return Response.json({ ok: true }, { status: 200, headers: NO_STORE });
   } catch (error) {
     console.error("DELETE /api/uploads/menu failed:", error);
-    return Response.json(
-      { ok: false, error: "Could not delete the image." },
-      { status: 500, headers: NO_STORE }
-    );
+    return storageFailure(error, "delete");
   }
 }
