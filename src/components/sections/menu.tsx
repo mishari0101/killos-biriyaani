@@ -38,6 +38,7 @@ function DishCard({ item, index }: { item: SectionMenuItem; index: number }) {
               src={item.image}
               alt={item.name}
               fill
+              unoptimized={item.image.startsWith("https://i.ibb.co/")}
               sizes="(min-width: 1024px) 20vw, (min-width: 640px) 30vw, 42vw"
               className="object-contain transition-transform duration-300 ease-in-out group-hover:scale-105"
             />

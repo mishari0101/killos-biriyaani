@@ -53,6 +53,7 @@ export function MenuTable({ items, loading, onEdit, onDelete, onToggle }: MenuTa
                       src={item.imageUrl}
                       alt={item.name}
                       fill
+                      unoptimized={item.imageUrl.startsWith("https://i.ibb.co/")}
                       sizes="64px"
                       className="object-cover"
                     />
