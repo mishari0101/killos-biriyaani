@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CloseIcon, SaveIcon } from "@/components/ui/icons";
 import { TextInput } from "@/components/admin/settings/text-input";
 import { TextArea } from "@/components/admin/settings/text-area";
@@ -18,6 +18,7 @@ interface MenuItemFormProps {
   categories: string[];
   onClose: () => void;
   onSave: (input: MenuItemInput) => Promise<{ errors?: Record<string, string>; error?: string }>;
+  onCategoryCreated?: () => void;
 }
 
 const emptyForm: MenuItemInput = {
@@ -45,7 +46,7 @@ function toForm(item: MenuItemData | null): MenuItemInput {
   };
 }
 
-export function MenuItemForm({ mode, item, categories, onClose, onSave }: MenuItemFormProps) {
+export function MenuItemForm({ mode, item, categories, onClose, onSave, onCategoryCreated }: MenuItemFormProps) {
   const [form, setForm] = useState<MenuItemInput>(() => toForm(item));
   const [errors, setErrors] = useState<MenuItemErrors>({});
   const [serverError, setServerError] = useState<string | null>(null);
@@ -54,6 +55,23 @@ export function MenuItemForm({ mode, item, categories, onClose, onSave }: MenuIt
   const [categoryOptions, setCategoryOptions] = useState<string[]>(() => [...categories].sort());
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
   const pendingKeyRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    let ignore = false;
+    fetch("/api/menu/categories", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((res) => {
+        if (ignore || !res?.ok || !Array.isArray(res.categories)) return;
+        const names = (res.categories as MenuCategoryData[]).map((c) => c.name);
+        setCategoryOptions((prev) =>
+          Array.from(new Set([...prev, ...names])).sort((a, b) => a.localeCompare(b))
+        );
+      })
+      .catch(() => {});
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   const handlePendingKeyChange = useCallback((key: string | null) => {
     pendingKeyRef.current = key;
@@ -304,6 +322,7 @@ export function MenuItemForm({ mode, item, categories, onClose, onSave }: MenuIt
             );
             patch("category", category.name);
             setCategoryModalOpen(false);
+            onCategoryCreated?.();
           }}
         />
       )}

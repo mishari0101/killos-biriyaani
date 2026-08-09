@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
-import { menu, menuCategories } from "@/lib/content/menu";
+import { menu } from "@/lib/content/menu";
 import { ArrowRightIcon, ChevronDownIcon, ImageIcon } from "@/components/ui/icons";
 
 export interface SectionMenuItem {
@@ -12,6 +12,11 @@ export interface SectionMenuItem {
   price: string;
   category: string;
   image: string;
+}
+
+export interface SectionCategory {
+  id: string;
+  label: string;
 }
 
 const STAGGER_MS = 55;
@@ -75,7 +80,13 @@ function DishCard({ item, index }: { item: SectionMenuItem; index: number }) {
   );
 }
 
-export function Menu({ items }: { items: SectionMenuItem[] }) {
+export function Menu({
+  items,
+  categories,
+}: {
+  items: SectionMenuItem[];
+  categories: SectionCategory[];
+}) {
   const sectionRef = useRef<HTMLElement>(null);
   const headerRef = useRef<HTMLDivElement>(null);
   const [inView, setInView] = useState(false);
@@ -172,7 +183,7 @@ export function Menu({ items }: { items: SectionMenuItem[] }) {
           className="menu-item mt-12 flex gap-2.5 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:flex-wrap sm:justify-center sm:overflow-visible sm:pb-0"
           style={{ "--d": "360ms" } as React.CSSProperties}
         >
-          {menuCategories.map((cat) => {
+          {[{ id: "all", label: "All" }, ...categories].map((cat) => {
             const isActive = cat.id === active;
             return (
               <button
@@ -204,6 +215,21 @@ export function Menu({ items }: { items: SectionMenuItem[] }) {
                 <DishCard key={item.id} item={item} index={i} />
               ))}
             </div>
+
+            {filtered.length === 0 && (
+              <div className="rounded-[24px] border border-dashed border-[var(--menu-pill-border)] bg-[var(--menu-pill-bg)] px-6 py-16 text-center">
+                <p
+                  className="text-[1.05rem] font-semibold text-[var(--fg)]"
+                  style={{ fontFamily: "var(--font-serif)" }}
+                >
+                  No dishes here yet
+                </p>
+                <p className="mx-auto mt-2 max-w-[38ch] text-[0.88rem] leading-relaxed text-[var(--fg-soft)]">
+                  We are still cooking up this category — check back soon or explore
+                  everything we have under All.
+                </p>
+              </div>
+            )}
 
             {/* ---- Collapsible region for the remaining dishes ---- */}
             {hasMore && (

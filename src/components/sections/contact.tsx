@@ -755,11 +755,11 @@ function ActionLink({
     <a
       href={href}
       {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-      className="btn btn-outline contact-action h-10 w-full sm:w-auto"
+      className="contact-action"
     >
-      <Icon size={14} />
+      <Icon size={13} />
       <span>{children}</span>
-      <ArrowRightIcon size={14} className="contact-action-arrow" />
+      <ArrowRightIcon size={13} className="contact-action-arrow" />
     </a>
   );
 }
@@ -779,12 +779,12 @@ function InfoRow({
 }) {
   return (
     <div
-      className="group contact-item border-t border-[var(--hairline)] py-5 first:border-t-0 first:pt-0"
+      className="group contact-item border-t border-[var(--hairline)] py-4 first:border-t-0 first:pt-0"
       style={{ "--d": `${320 + index * STAGGER_MS}ms` } as React.CSSProperties}
     >
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-5">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[var(--accent-soft)] bg-[var(--accent-soft)] text-[var(--accent)] transition-transform duration-300 ease-out group-hover:scale-105">
-          <Icon size={16} />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[var(--accent-soft)] bg-[var(--accent-soft)] text-[var(--accent)] transition-transform duration-300 ease-out group-hover:scale-105">
+          <Icon size={15} />
         </span>
         <div className="min-w-0 flex-1">
           <h4 className="text-[0.6rem] font-medium uppercase tracking-[0.2em] text-[var(--fg-muted)] transition-colors duration-300 ease-out group-hover:text-[var(--accent)]">
@@ -998,62 +998,70 @@ function EnquiryForm({
       noValidate
       aria-busy={status === "submitting"}
     >
-      <div className="space-y-4 sm:space-y-5">
-        <div className="grid min-[360px]:grid-cols-2 gap-x-3 gap-y-4">
-          <Field
-            id="name"
-            label={enquiryForm.name}
-            value={values.name}
-            onChange={(v) => setField("name", v)}
-            onBlur={() => blurField("name")}
-            error={touched.name ? errors.name : undefined}
-            required
-            autoComplete="name"
-          />
-          <Field
-            id="phone"
-            label={enquiryForm.phone}
-            value={values.phone}
-            onChange={(v) => setField("phone", v)}
-            onBlur={() => blurField("phone")}
-            error={touched.phone ? errors.phone : undefined}
-            required
-            type="tel"
-            inputMode="tel"
-            autoComplete="tel"
-          />
+      <div className="space-y-6">
+        <div>
+          <p className="contact-group-label">Your Details</p>
+          <div className="mt-3 grid min-[360px]:grid-cols-2 gap-x-4 gap-y-4">
+            <Field
+              id="name"
+              label={enquiryForm.name}
+              value={values.name}
+              onChange={(v) => setField("name", v)}
+              onBlur={() => blurField("name")}
+              error={touched.name ? errors.name : undefined}
+              required
+              autoComplete="name"
+            />
+            <Field
+              id="phone"
+              label={enquiryForm.phone}
+              value={values.phone}
+              onChange={(v) => setField("phone", v)}
+              onBlur={() => blurField("phone")}
+              error={touched.phone ? errors.phone : undefined}
+              required
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel"
+            />
+          </div>
         </div>
-        <Field
-          id="email"
-          label={enquiryForm.email}
-          value={values.email}
-          onChange={(v) => setField("email", v)}
-          onBlur={() => blurField("email")}
-          error={touched.email ? errors.email : undefined}
-          type="email"
-          inputMode="email"
-          autoComplete="email"
-        />
-        <Field
-          id="subject"
-          label={enquiryForm.subject}
-          value={values.subject}
-          onChange={(v) => setField("subject", v)}
-          onBlur={() => blurField("subject")}
-          error={touched.subject ? errors.subject : undefined}
-          required
-        />
-        <Field
-          id="message"
-          label={enquiryForm.message}
-          value={values.message}
-          onChange={(v) => setField("message", v)}
-          onBlur={() => blurField("message")}
-          error={touched.message ? errors.message : undefined}
-          required
-          multiline
-          rows={5}
-        />
+        <div>
+          <p className="contact-group-label">Your Message</p>
+          <div className="mt-3 space-y-4">
+            <Field
+              id="email"
+              label={enquiryForm.email}
+              value={values.email}
+              onChange={(v) => setField("email", v)}
+              onBlur={() => blurField("email")}
+              error={touched.email ? errors.email : undefined}
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+            />
+            <Field
+              id="subject"
+              label={enquiryForm.subject}
+              value={values.subject}
+              onChange={(v) => setField("subject", v)}
+              onBlur={() => blurField("subject")}
+              error={touched.subject ? errors.subject : undefined}
+              required
+            />
+            <Field
+              id="message"
+              label={enquiryForm.message}
+              value={values.message}
+              onChange={(v) => setField("message", v)}
+              onBlur={() => blurField("message")}
+              error={touched.message ? errors.message : undefined}
+              required
+              multiline
+              rows={5}
+            />
+          </div>
+        </div>
       </div>
 
       {status === "error" && (
@@ -1069,7 +1077,7 @@ function EnquiryForm({
         ref={submitBtnRef}
         type="submit"
         disabled={status === "submitting"}
-        className="btn btn-brand btn-lg mt-6 w-full disabled:cursor-not-allowed disabled:opacity-75"
+        className="btn btn-brand contact-cta mt-7 w-full disabled:cursor-not-allowed disabled:opacity-75"
       >
         {status === "submitting" ? (
           <span className="flex items-center gap-3">
@@ -1248,7 +1256,7 @@ export function Contact({ info }: { info: BranchContactInfo }) {
     <section
       id="contact"
       ref={sectionRef}
-      className={`relative scroll-mt-24 bg-[var(--contact-bg)] pt-24 pb-32 lg:pt-36 lg:pb-40 ${
+      className={`relative scroll-mt-28 bg-[var(--contact-bg)] pt-24 pb-32 lg:pt-36 lg:pb-40 ${
         inView ? "contact-in" : ""
       }`}
       aria-labelledby="contact-heading"
@@ -1281,10 +1289,10 @@ export function Contact({ info }: { info: BranchContactInfo }) {
           </p>
         </div>
 
-        <div className="mt-14 grid gap-6 lg:mt-16 lg:grid-cols-[minmax(0,3.5fr)_minmax(0,6.5fr)] lg:gap-8">
+        <div className="mt-14 grid gap-6 lg:mt-16 lg:grid-cols-[minmax(0,3fr)_minmax(0,7fr)] lg:gap-10">
           {/* ---- Left: restaurant information ---- */}
           <div
-            className="contact-item rounded-[28px] border border-[var(--contact-card-border)] bg-[var(--contact-card-bg)] p-7 shadow-[var(--contact-card-shadow)] backdrop-blur-[16px] hover:shadow-[var(--contact-card-shadow-hover)] sm:p-8"
+            className="contact-item rounded-[28px] border border-[var(--contact-card-border)] bg-[var(--contact-card-bg)] p-6 shadow-[var(--contact-card-shadow)] backdrop-blur-[16px] sm:p-7"
             style={{ "--d": "320ms" } as React.CSSProperties}
           >
             <div>
@@ -1384,7 +1392,7 @@ export function Contact({ info }: { info: BranchContactInfo }) {
           <div
             id="reservation"
             ref={formWrapRef}
-            className="contact-item scroll-mt-24 rounded-[28px] border border-[var(--contact-card-border)] bg-[var(--contact-card-bg)] p-6 shadow-[var(--contact-card-shadow)] backdrop-blur-[16px] sm:p-8 lg:p-10"
+            className="contact-item scroll-mt-28 rounded-[28px] border border-[var(--contact-card-border)] bg-[var(--contact-card-bg)] p-6 shadow-[var(--contact-card-shadow)] backdrop-blur-[16px] sm:p-8 lg:p-9"
             style={{ "--d": "700ms" } as React.CSSProperties}
           >
             {mode === "message" && enqStatus === "success" ? (
@@ -1407,7 +1415,7 @@ export function Contact({ info }: { info: BranchContactInfo }) {
               />
             ) : (
               <>
-                <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="mb-7">
                   <div
                     role="tablist"
                     aria-label="Contact form"
@@ -1450,9 +1458,6 @@ export function Contact({ info }: { info: BranchContactInfo }) {
                       </span>
                     </button>
                   </div>
-                  <span className="hidden shrink-0 self-start rounded-full border border-[var(--contact-card-border)] bg-[var(--accent-soft)] px-3.5 py-1.5 text-[0.6rem] font-medium uppercase tracking-[0.2em] text-[var(--accent)] sm:inline-flex">
-                    Fast &amp; Easy
-                  </span>
                 </div>
 
                 {mode === "message" ? (
@@ -1480,69 +1485,80 @@ export function Contact({ info }: { info: BranchContactInfo }) {
                       noValidate
                       aria-busy={status === "submitting"}
                     >
-                      <div className="space-y-4 sm:space-y-5">
-                        <Field
-                          id="name"
-                          label={formLabels.name}
-                          value={values.name}
-                          onChange={(v) => setField("name", v)}
-                          onBlur={() => blurField("name")}
-                          error={touched.name ? errors.name : undefined}
-                          required
-                          autoComplete="name"
-                        />
-                        <Field
-                          id="phone"
-                          label={formLabels.phone}
-                          value={values.phone}
-                          onChange={(v) => setField("phone", v)}
-                          onBlur={() => blurField("phone")}
-                          error={touched.phone ? errors.phone : undefined}
-                          required
-                          type="tel"
-                          inputMode="tel"
-                          autoComplete="tel"
-                        />
-                        <div className="grid min-[360px]:grid-cols-2 gap-x-3 gap-y-4">
-                          <GuestsField
-                            value={values.guests}
-                            onChange={(v) => setField("guests", v)}
-                            onBlur={() => blurField("guests")}
-                            error={touched.guests ? errors.guests : undefined}
-                          />
-                          <DateField
-                            label={formLabels.date}
-                            value={values.date}
-                            onChange={(v) => setField("date", v)}
-                            onBlur={() => blurField("date")}
-                            error={touched.date ? errors.date : undefined}
-                            required
-                          />
+                      <div className="space-y-6">
+                        <div>
+                          <p className="contact-group-label">Your Details</p>
+                          <div className="mt-3 grid min-[360px]:grid-cols-2 gap-x-4 gap-y-4">
+                            <Field
+                              id="name"
+                              label={formLabels.name}
+                              value={values.name}
+                              onChange={(v) => setField("name", v)}
+                              onBlur={() => blurField("name")}
+                              error={touched.name ? errors.name : undefined}
+                              required
+                              autoComplete="name"
+                            />
+                            <Field
+                              id="phone"
+                              label={formLabels.phone}
+                              value={values.phone}
+                              onChange={(v) => setField("phone", v)}
+                              onBlur={() => blurField("phone")}
+                              error={touched.phone ? errors.phone : undefined}
+                              required
+                              type="tel"
+                              inputMode="tel"
+                              autoComplete="tel"
+                            />
+                          </div>
                         </div>
-                        <div className="grid min-[360px]:grid-cols-2 gap-x-3 gap-y-4">
-                          <TimeField
-                            label={formLabels.time}
-                            value={values.time}
-                            onChange={(v) => setField("time", v)}
-                            onBlur={() => blurField("time")}
-                            error={touched.time ? errors.time : undefined}
-                            required
-                          />
-                          <OccasionField
-                            value={values.occasion}
-                            onChange={(v) => setField("occasion", v)}
-                            onBlur={() => blurField("occasion")}
-                          />
+                        <div>
+                          <p className="contact-group-label">Reservation Details</p>
+                          <div className="mt-3 grid min-[360px]:grid-cols-2 gap-x-4 gap-y-4">
+                            <GuestsField
+                              value={values.guests}
+                              onChange={(v) => setField("guests", v)}
+                              onBlur={() => blurField("guests")}
+                              error={touched.guests ? errors.guests : undefined}
+                            />
+                            <DateField
+                              label={formLabels.date}
+                              value={values.date}
+                              onChange={(v) => setField("date", v)}
+                              onBlur={() => blurField("date")}
+                              error={touched.date ? errors.date : undefined}
+                              required
+                            />
+                            <TimeField
+                              label={formLabels.time}
+                              value={values.time}
+                              onChange={(v) => setField("time", v)}
+                              onBlur={() => blurField("time")}
+                              error={touched.time ? errors.time : undefined}
+                              required
+                            />
+                            <OccasionField
+                              value={values.occasion}
+                              onChange={(v) => setField("occasion", v)}
+                              onBlur={() => blurField("occasion")}
+                            />
+                          </div>
                         </div>
-                        <Field
-                          id="request"
-                          label={formLabels.request}
-                          value={values.request}
-                          onChange={(v) => setField("request", v)}
-                          onBlur={() => blurField("request")}
-                          error={touched.request ? errors.request : undefined}
-                          multiline
-                        />
+                        <div>
+                          <p className="contact-group-label">Notes</p>
+                          <div className="mt-3">
+                            <Field
+                              id="request"
+                              label={formLabels.request}
+                              value={values.request}
+                              onChange={(v) => setField("request", v)}
+                              onBlur={() => blurField("request")}
+                              error={touched.request ? errors.request : undefined}
+                              multiline
+                            />
+                          </div>
+                        </div>
                       </div>
 
                       {status === "error" && (
@@ -1558,7 +1574,7 @@ export function Contact({ info }: { info: BranchContactInfo }) {
                         ref={submitBtnRef}
                         type="submit"
                         disabled={status === "submitting"}
-                        className="btn btn-brand btn-lg mt-6 w-full disabled:cursor-not-allowed disabled:opacity-75"
+                        className="btn btn-brand contact-cta mt-7 w-full disabled:cursor-not-allowed disabled:opacity-75"
                       >
                         {status === "submitting" ? (
                           <span className="flex items-center gap-3">

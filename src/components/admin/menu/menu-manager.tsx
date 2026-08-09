@@ -324,6 +324,7 @@ export function MenuManager({ initial }: MenuManagerProps) {
           categories={categories}
           onClose={() => setFormState(null)}
           onSave={handleSave}
+          onCategoryCreated={refreshInBackground}
         />
       )}
 
