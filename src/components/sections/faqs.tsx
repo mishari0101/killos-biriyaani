@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { faqs, seedFaqs, type FaqItem } from "@/lib/content/faqs";
-import { fetchFaqs, FAQS_POLL_MS } from "@/lib/faqs/client";
 
 const STAGGER_MS = 80;
 
@@ -81,27 +80,8 @@ function FaqCard({
 export function Faqs() {
   const sectionRef = useRef<HTMLElement>(null);
   const [inView, setInView] = useState(false);
-  const [items, setItems] = useState<FaqItem[]>(seedFaqs);
+  const items = seedFaqs;
   const [openIndex, setOpenIndex] = useState<number | null>(0);
-
-  useEffect(() => {
-    let alive = true;
-    const load = async () => {
-      const next = await fetchFaqs();
-      if (alive) setItems(next);
-    };
-    load();
-    if (FAQS_POLL_MS > 0) {
-      const id = setInterval(load, FAQS_POLL_MS);
-      return () => {
-        alive = false;
-        clearInterval(id);
-      };
-    }
-    return () => {
-      alive = false;
-    };
-  }, []);
 
   useEffect(() => {
     const el = sectionRef.current;

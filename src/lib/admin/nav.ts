@@ -3,14 +3,11 @@ import {
   GridIcon,
   MailIcon,
   MessageSquareIcon,
-  PenLineIcon,
   SettingsIcon,
   SparklesIcon,
   StarIcon,
   StoreIcon,
-  TagIcon,
   UtensilsIcon,
-  GlobeIcon,
   UserIcon,
 } from "@/components/ui/icons";
 import type { ComponentType } from "react";
@@ -87,20 +84,6 @@ export const adminNavSections: AdminNavSection[] = [
         status: "active",
       },
       {
-        label: "FAQs",
-        href: "/admin/faq",
-        icon: TagIcon,
-        description: "Questions & answers",
-        status: "active",
-      },
-      {
-        label: "Blog",
-        href: "/admin/blog",
-        icon: PenLineIcon,
-        description: "Stories & announcements",
-        status: "active",
-      },
-      {
         label: "Contact",
         href: "/admin/contact",
         icon: MailIcon,
@@ -117,13 +100,6 @@ export const adminNavSections: AdminNavSection[] = [
         href: "/admin/account",
         icon: UserIcon,
         description: "Profile, password & sign-in",
-        status: "active",
-      },
-      {
-        label: "SEO",
-        href: "/admin/seo",
-        icon: GlobeIcon,
-        description: "Meta, sitemap & search",
         status: "active",
       },
       {

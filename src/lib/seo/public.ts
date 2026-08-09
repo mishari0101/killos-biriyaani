@@ -5,21 +5,14 @@ import { cache } from "react";
 import { site as siteContent } from "@/lib/content/site";
 import { getSettings } from "@/lib/settings/service";
 import { DEFAULT_SEO } from "./defaults";
-import { getSeo } from "./service";
 import { resolveSiteUrl, toAbsoluteUrl, type SeoData } from "./types";
 
 export const DEFAULT_TITLE = "Killo's Biriyani — Arabian Restaurant";
 export const DEFAULT_DESCRIPTION =
   "The taste of Arabia — dum-cooked over open fire, served with a touch of luxury. Open daily 10:00 AM – 12:00 AM.";
 
-/** Memoized within one render so metadata, viewport and components share one fetch. */
-const safeGetSeo = cache(async (): Promise<SeoData> => {
-  try {
-    return await getSeo();
-  } catch {
-    return DEFAULT_SEO;
-  }
-});
+/** Static SEO configuration — the public site no longer reads SEO from the dashboard. */
+const safeGetSeo = (): SeoData => DEFAULT_SEO;
 
 export const getSettingsSafe = cache(async () => {
   try {

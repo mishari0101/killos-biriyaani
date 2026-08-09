@@ -19,15 +19,13 @@ export const COLLECTIONS = [
   "attractions",
   "reviews",
   "branches",
-  "faqs",
   "contactMessages",
   "reservations",
-  "blogPosts",
 ] as const;
 export type CollectionName = (typeof COLLECTIONS)[number];
 
 /** Singleton documents keyed by the fixed id "singleton". */
-export const SINGLETONS = ["settings", "siteSeo"] as const;
+export const SINGLETONS = ["settings"] as const;
 export type SingletonName = (typeof SINGLETONS)[number];
 
 function db(): Firestore {

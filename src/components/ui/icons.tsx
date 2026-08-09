@@ -408,14 +408,6 @@ export const PenLineIcon = (props: IconProps) => (
   </Base>
 );
 
-export const GlobeIcon = (props: IconProps) => (
-  <Base {...props}>
-    <circle cx="12" cy="12" r="9" />
-    <path d="M3 12h18" />
-    <path d="M12 3a15 15 0 0 1 0 18 15 15 0 0 1 0-18Z" />
-  </Base>
-);
-
 export const ShieldIcon = (props: IconProps) => (
   <Base {...props}>
     <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" />
@@ -545,13 +537,6 @@ export const ShareIcon = (props: IconProps) => (
     <circle cx="18" cy="19" r="3" />
     <path d="m8.6 13.5 6.8 4" />
     <path d="m15.4 6.5-6.8 4" />
-  </Base>
-);
-
-export const TagIcon = (props: IconProps) => (
-  <Base {...props}>
-    <path d="M20.59 13.41 11 3.82A2 2 0 0 0 9.59 3H4a1 1 0 0 0-1 1v5.59a2 2 0 0 0 .59 1.41l9.59 9.59a2 2 0 0 0 2.82 0l4.59-4.59a2 2 0 0 0 0-2.82Z" />
-    <circle cx="7.5" cy="7.5" r="1" fill="currentColor" stroke="none" />
   </Base>
 );
 

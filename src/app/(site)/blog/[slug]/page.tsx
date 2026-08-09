@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeftIcon, ClockIcon } from "@/components/ui/icons";
-import { getPublishedBlogBySlug } from "@/lib/blog/service";
+import { getPublishedPostBySlug } from "@/lib/content/blog";
 import { getSiteSeo } from "@/lib/seo/public";
 import { toAbsoluteUrl } from "@/lib/seo/types";
 import { safeJsonLd } from "@/lib/seo/jsonld";
@@ -19,7 +19,7 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const post = await getPublishedBlogBySlug(slug);
+  const post = await getPublishedPostBySlug(slug);
   if (!post) {
     return { title: "Post not found" };
   }
@@ -61,7 +61,7 @@ export default async function BlogPostPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const post = await getPublishedBlogBySlug(slug);
+  const post = getPublishedPostBySlug(slug);
   if (!post) notFound();
 
   const { baseUrl, name } = await getSiteSeo();

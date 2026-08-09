@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { PenLineIcon } from "@/components/ui/icons";
-import { blogContent } from "@/lib/content/blog";
-import { listPublicBlogs } from "@/lib/blog/service";
+import { blogContent, listPublishedPosts } from "@/lib/content/blog";
 import { getSiteShareMeta } from "@/lib/seo/public";
 import { PostCard } from "@/components/blog/post-card";
 import { FooterData } from "@/components/sections/footer-data";
@@ -38,7 +37,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export const dynamic = "force-dynamic";
 
 export default async function BlogPage() {
-  const posts = await listPublicBlogs();
+  const posts = listPublishedPosts();
 
   return (
     <main>

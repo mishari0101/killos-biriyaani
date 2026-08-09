@@ -1,16 +1,9 @@
 import { seedFaqs } from "@/lib/content/faqs";
-import { listPublicFaqs } from "@/lib/faqs/service";
 
-/** FAQPage structured data for Google rich results. Built from the same
-    visible FAQs the accordion shows, so it never drifts from the site. */
-export async function FaqJsonLd() {
-  let items: { question: string; answer: string }[];
-  try {
-    const rows = await listPublicFaqs();
-    items = rows.length ? rows : seedFaqs;
-  } catch {
-    items = seedFaqs;
-  }
+/** FAQPage structured data for Google rich results, built from the same static
+    FAQs the accordion shows, so it never drifts from the site. */
+export function FaqJsonLd() {
+  const items = seedFaqs;
 
   const schema = {
     "@context": "https://schema.org",

@@ -1,11 +1,10 @@
 import Link from "next/link";
 import { ArrowRightIcon, ClockIcon } from "@/components/ui/icons";
-import { parseTags } from "@/lib/content/blog";
+import { parseTags, type BlogPost } from "@/lib/content/blog";
 import { formatPostDate, readTimeMinutes } from "@/lib/blog/format";
-import type { BlogData } from "@/lib/blog/types";
 
 interface PostCardProps {
-  post: BlogData;
+  post: BlogPost;
 }
 
 export function PostCard({ post }: PostCardProps) {

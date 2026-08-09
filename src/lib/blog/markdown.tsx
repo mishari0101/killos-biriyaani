@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 
 /**
- * Minimal, safe markdown renderer used by both the public article page
- * (Server Component) and the admin preview (Client Component).
+ * Minimal, safe markdown renderer used by the public article page
+ * (Server Component).
  *
  * Only a safe subset is supported — headings, paragraphs, lists, blockquotes,
  * fenced code blocks, horizontal rules and inline bold/italic/code/links. All
