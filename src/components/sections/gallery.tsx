@@ -45,6 +45,7 @@ function Tile({ item, onOpen }: { item: SectionGalleryItem; onOpen: () => void }
             src={item.image}
             alt={item.caption}
             fill
+            unoptimized={item.image.startsWith("https://i.ibb.co/")}
             sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
             className="object-cover transition-transform duration-[900ms] ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-[1.06]"
           />
@@ -163,6 +164,7 @@ function Lightbox({
                 alt={item.caption}
                 width={1600}
                 height={1067}
+                unoptimized={item.image.startsWith("https://i.ibb.co/")}
                 sizes="(min-width: 1024px) 60rem, 100vw"
                 className="h-auto max-h-[68vh] w-auto max-w-full object-contain"
               />

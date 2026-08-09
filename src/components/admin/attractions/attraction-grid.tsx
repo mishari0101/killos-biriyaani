@@ -67,6 +67,7 @@ function AttractionCard({
             src={item.imageUrl}
             alt={item.name}
             fill
+            unoptimized={item.imageUrl.startsWith("https://i.ibb.co/")}
             sizes="(min-width: 1280px) 25vw, (min-width: 768px) 33vw, 100vw"
             className="object-cover"
           />

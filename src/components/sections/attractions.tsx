@@ -74,6 +74,7 @@ function AttractionCard({ item, sizes }: { item: SectionAttractionItem; sizes: s
           src={item.image}
           alt={item.name}
           fill
+          unoptimized={item.image.startsWith("https://i.ibb.co/")}
           sizes={sizes}
           style={{ objectPosition: item.imagePosition || "center center" }}
           className="object-cover transition-transform duration-[1100ms] ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-[1.06]"
