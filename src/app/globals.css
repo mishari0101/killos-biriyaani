@@ -171,13 +171,9 @@
   --contact-card-shadow-hover: 0 20px 48px -26px rgba(23, 23, 23, 0.26);
   --contact-field-bg: #ffffff;
   --contact-field-border: rgba(23, 23, 23, 0.12);
-  --contact-label: rgba(23, 23, 23, 0.45);
   --contact-sticky-bg: rgba(255, 255, 255, 0.84);
   --contact-sticky-border: rgba(23, 23, 23, 0.1);
   --contact-tabs-bg: rgba(23, 23, 23, 0.05);
-  --contact-tabs-active-bg: var(--brand-cta);
-  --contact-tabs-active-fg: #ffffff;
-  --contact-tabs-shadow: 0 10px 26px -12px rgba(192, 57, 43, 0.55);
 
   --footer-bg: #ffffff;
   --footer-divider: rgba(23, 23, 23, 0.08);
@@ -369,14 +365,10 @@
   --contact-card-shadow: 0 10px 30px -24px rgba(0, 0, 0, 0.6);
   --contact-card-shadow-hover: 0 18px 44px -26px rgba(0, 0, 0, 0.72);
   --contact-field-bg: #171717;
-  --contact-field-border: rgba(255, 255, 255, 0.12);
-  --contact-label: rgba(255, 255, 255, 0.42);
+  --contact-field-border: rgba(255, 255, 255, 0.18);
   --contact-sticky-bg: rgba(15, 15, 15, 0.86);
   --contact-sticky-border: rgba(255, 255, 255, 0.1);
   --contact-tabs-bg: rgba(255, 255, 255, 0.08);
-  --contact-tabs-active-bg: var(--brand-cta);
-  --contact-tabs-active-fg: #ffffff;
-  --contact-tabs-shadow: 0 10px 26px -12px rgba(192, 57, 43, 0.55);
 
   --footer-bg: #0f0f10;
   --footer-divider: rgba(255, 255, 255, 0.08);
@@ -1473,94 +1465,6 @@ html.theme-switching *::after {
   transform: translateY(0);
 }
 
-.contact-input {
-  width: 100%;
-  height: 50px;
-  border-radius: 16px;
-  border: 1px solid var(--contact-field-border);
-  background: var(--contact-field-bg);
-  color: var(--fg);
-  font-family: var(--font-sans);
-  font-size: 1rem;
-  font-weight: 500;
-  line-height: 1.4;
-  padding: 18px 16px 5px;
-  transition:
-    border-color 0.3s var(--ease-lux),
-    box-shadow 0.3s var(--ease-lux),
-    background-color 0.3s var(--ease-lux);
-}
-
-.contact-input::placeholder {
-  color: var(--contact-label);
-  font-size: 0.9375rem;
-  font-weight: 400;
-}
-
-.contact-input:focus {
-  outline: none;
-  border-color: var(--accent);
-  background: var(--contact-field-bg);
-  box-shadow: 0 0 0 3px var(--accent-soft),
-    0 10px 26px -20px rgba(23, 23, 23, 0.28);
-}
-
-.contact-input-error {
-  border-color: var(--brand-cta);
-}
-
-.contact-input-error:focus {
-  border-color: var(--brand-cta);
-  box-shadow: 0 0 0 3px rgba(192, 57, 43, 0.14),
-    0 10px 26px -20px rgba(23, 23, 23, 0.28);
-}
-
-.contact-input-area {
-  height: auto;
-  min-height: 80px;
-  padding-top: 22px;
-  resize: none;
-}
-
-/* The date and time fields are fully custom components (a DayPicker calendar
-   and a time list). The trigger is a styled button that reads exactly like the
-   text inputs below. */
-.contact-trigger {
-  appearance: none;
-  -webkit-appearance: none;
-  cursor: pointer;
-  text-align: left;
-  user-select: none;
-}
-
-.contact-trigger-open {
-  border-color: var(--accent);
-  box-shadow:
-    0 0 0 3px var(--accent-soft),
-    0 10px 26px -20px rgba(23, 23, 23, 0.28);
-}
-
-.contact-trigger-open.contact-input-error {
-  border-color: var(--brand-cta);
-  box-shadow:
-    0 0 0 3px rgba(192, 57, 43, 0.14),
-    0 10px 26px -20px rgba(23, 23, 23, 0.28);
-}
-
-.contact-trigger-value {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  padding-right: 44px;
-}
-
-.contact-trigger-placeholder {
-  color: var(--contact-label);
-  font-size: 0.9375rem;
-  font-weight: 400;
-}
-
 /* Dropdown panel shared by the date and time pickers. */
 .contact-picker-panel {
   position: absolute;
@@ -1804,52 +1708,6 @@ html.theme-switching *::after {
   font-weight: 600;
 }
 
-.contact-input-icon {
-  position: absolute;
-  right: 16px;
-  top: 50%;
-  transform: translateY(-50%);
-  display: flex;
-  align-items: center;
-  color: var(--contact-label);
-  pointer-events: none;
-}
-
-.contact-label {
-  position: absolute;
-  left: 16px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 0.9375rem;
-  font-weight: 500;
-  color: var(--contact-label);
-  pointer-events: none;
-  white-space: nowrap;
-  transition:
-    top 0.2s var(--ease-lux),
-    transform 0.2s var(--ease-lux),
-    font-size 0.2s var(--ease-lux),
-    letter-spacing 0.2s var(--ease-lux),
-    color 0.2s var(--ease-lux);
-}
-
-.contact-label-float {
-  top: 14px;
-  transform: none;
-  font-size: 0.75rem;
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--accent);
-  max-width: calc(100% - 36px);
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.contact-input-area ~ .contact-label-float {
-  top: 12px;
-}
-
 .contact-field-error {
   min-height: 1rem;
   font-size: 0.7rem;
@@ -1901,38 +1759,8 @@ html.theme-switching *::after {
     inset 0 0 0 1px var(--accent-soft);
 }
 
-/* Compact text action links (restaurant information card) */
-.contact-action {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 4px 0;
-  font-size: 0.64rem;
-  font-weight: 600;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--accent);
-  white-space: nowrap;
-  transition:
-    color 0.3s var(--ease-lux),
-    gap 0.3s var(--ease-lux);
-}
-
-.contact-action:hover {
-  color: var(--accent-strong);
-}
-
-.contact-action-arrow {
-  transition: transform 0.3s var(--ease-lux);
-}
-
-.contact-action:hover .contact-action-arrow {
-  transform: translateX(3px);
-}
-
-/* Form group headings */
-.contact-group-label {
-  display: block;
+/* Mobile multi-step indicator */
+.contact-step-label {
   font-size: 0.62rem;
   font-weight: 600;
   letter-spacing: 0.2em;
@@ -1940,12 +1768,25 @@ html.theme-switching *::after {
   color: var(--accent);
 }
 
-/* Reservation / enquiry submit CTA — prominent but restrained */
-.contact-cta {
-  height: 50px;
-  padding-inline: 1.75rem;
-  font-size: 0.82rem;
-  letter-spacing: 0.14em;
+.contact-step-hint {
+  font-size: 0.7rem;
+  font-weight: 400;
+  color: var(--fg-muted);
+}
+
+.contact-step-track {
+  margin-top: 0.625rem;
+  height: 4px;
+  border-radius: 9999px;
+  background: var(--contact-tabs-bg);
+  overflow: hidden;
+}
+
+.contact-step-fill {
+  height: 100%;
+  border-radius: 9999px;
+  background: var(--accent);
+  transition: width 0.4s var(--ease-lux);
 }
 
 /* ---------- Footer ---------- */
@@ -2028,7 +1869,8 @@ html.theme-switching *::after {
 .back-to-top {
   position: fixed;
   right: 20px;
-  bottom: 88px;
+  /* Sits above the contact section's sticky action bar on mobile. */
+  bottom: 152px;
   z-index: 60;
   display: flex;
   align-items: center;

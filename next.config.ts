@@ -21,7 +21,16 @@ function assertRequiredEnv(): void {
 }
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "i.ibb.co",
+        pathname: "/**",
+      },
+    ],
+    dangerouslyAllowLocalIP: true,
+  },
 };
 
 export default function config(): NextConfig {

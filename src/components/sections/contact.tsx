@@ -5,7 +5,6 @@ import {
   useEffect,
   useRef,
   useState,
-  useSyncExternalStore,
   type FormEvent,
   type ReactNode,
 } from "react";
@@ -15,7 +14,6 @@ import {
   enquiryForm,
   enquirySuccess,
   formLabels,
-  infoCard,
   occasionOptions,
   submitCta,
   success,
@@ -33,7 +31,7 @@ import {
   type ReservationFieldKey,
   type ReservationFormValues,
 } from "@/lib/contact";
-import { directionsUrl, telHref } from "@/lib/branches";
+import { telHref } from "@/lib/branches";
 import type { BranchContactInfo } from "@/lib/branches/types";
 import {
   ArrowRightIcon,
@@ -42,12 +40,14 @@ import {
   ChevronDownIcon,
   ClockIcon,
   MailIcon,
-  MapPinIcon,
+  MessageSquareIcon,
   PhoneIcon,
+  SparklesIcon,
+  UserIcon,
+  UsersIcon,
   WhatsAppIcon,
 } from "@/components/ui/icons";
 
-const STAGGER_MS = 120;
 const GUEST_OPTIONS = Array.from({ length: 20 }, (_, i) => i + 1);
 const FIELD_ORDER: ReservationFieldKey[] = [
   "name",
@@ -70,42 +70,6 @@ const EMPTY: Values = {
   occasion: "",
   request: "",
 };
-
-/* Current local hour, refreshed each minute. A tiny external store caches the
-   snapshot so getSnapshot stays stable between ticks — otherwise
-   useSyncExternalStore would force a re-render on every check. The server
-   snapshot returns 0 (null sentinel) so the Open/Closed badge hydrates without
-   mismatches. */
-const hourListeners = new Set<() => void>();
-let hourSnapshot = 0;
-let hourTimer: number | null = null;
-
-function subscribeHour(onChange: () => void): () => void {
-  hourListeners.add(onChange);
-  if (hourListeners.size === 1) {
-    hourSnapshot = Date.now();
-    hourTimer = window.setInterval(() => {
-      hourSnapshot = Date.now();
-      hourListeners.forEach((listener) => listener());
-    }, 60_000);
-  }
-  return () => {
-    hourListeners.delete(onChange);
-    if (hourListeners.size === 0 && hourTimer !== null) {
-      window.clearInterval(hourTimer);
-      hourTimer = null;
-    }
-  };
-}
-
-function getHourSnapshot(): number {
-  return hourSnapshot;
-}
-
-function useCurrentHour(): number | null {
-  const now = useSyncExternalStore(subscribeHour, getHourSnapshot, () => 0);
-  return now === 0 ? null : new Date(now).getHours();
-}
 
 function validateOne(key: ReservationFieldKey, values: Values): string {
   return validateReservationFields(values)[key] ?? "";
@@ -220,7 +184,48 @@ function usePickerDismiss({
   }, [open, onClose, ref]);
 }
 
+/* ---------------------- Shared form visual layer ---------------------- */
+
+/* Floating-label text inputs, selects and picker triggers share one visual
+   language: rounded fields, gold focus ring and a small floated label. */
+const fieldBase =
+  "w-full rounded-xl border border-[var(--contact-field-border)] bg-[var(--contact-field-bg)] text-sm font-medium text-[var(--fg)] outline-none transition-all duration-200 placeholder:text-transparent focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent-soft)]";
+
+const fieldInput = `${fieldBase} h-[52px] pt-5 pb-2`;
+
+const fieldError = "border-[var(--brand-cta)] focus:border-[var(--brand-cta)] focus:ring-[rgba(192,57,43,0.14)]";
+
+/* Floated label position on focus/filled (peer + placeholder-shown trick). */
+const labelFloated =
+  "peer-focus:top-2.5 peer-focus:translate-y-0 peer-focus:text-[10px] peer-focus:font-semibold peer-focus:uppercase peer-focus:tracking-[0.15em] peer-focus:text-[var(--accent)] peer-[:not(:placeholder-shown)]:top-2.5 peer-[:not(:placeholder-shown)]:translate-y-0 peer-[:not(:placeholder-shown)]:text-[10px] peer-[:not(:placeholder-shown)]:font-semibold peer-[:not(:placeholder-shown)]:uppercase peer-[:not(:placeholder-shown)]:tracking-[0.15em] peer-[:not(:placeholder-shown)]:text-[var(--accent)]";
+
+const labelFloatedArea =
+  "peer-focus:top-2 peer-focus:translate-y-0 peer-focus:text-[10px] peer-focus:font-semibold peer-focus:uppercase peer-focus:tracking-[0.15em] peer-focus:text-[var(--accent)] peer-[:not(:placeholder-shown)]:top-2 peer-[:not(:placeholder-shown)]:translate-y-0 peer-[:not(:placeholder-shown)]:text-[10px] peer-[:not(:placeholder-shown)]:font-semibold peer-[:not(:placeholder-shown)]:uppercase peer-[:not(:placeholder-shown)]:tracking-[0.15em] peer-[:not(:placeholder-shown)]:text-[var(--accent)]";
+
+const fieldLabel =
+  "pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm font-medium text-[var(--fg-muted)] transition-all duration-200";
+
+const fieldIcon =
+  "pointer-events-none absolute top-1/2 -translate-y-1/2 text-[var(--accent)] opacity-60";
+
+/* Form group heading — gold overline with a fading gold divider. */
+function SectionLabel({ children }: { children: ReactNode }) {
+  return (
+    <div className="mb-5">
+      <h3 className="text-[0.62rem] font-semibold uppercase tracking-[0.2em] text-[var(--accent)]">
+        {children}
+      </h3>
+      <div
+        aria-hidden="true"
+        className="mt-2 h-px w-full bg-gradient-to-r from-[rgba(201,162,39,0.7)] via-[rgba(201,162,39,0.15)] to-transparent"
+      />
+    </div>
+  );
+}
+
 /* ------------------------------ Field ------------------------------ */
+
+type FieldIcon = React.ComponentType<React.SVGProps<SVGSVGElement> & { size?: number }>;
 
 function Field({
   id,
@@ -235,6 +240,8 @@ function Field({
   autoComplete,
   inputMode,
   rows = 2,
+  icon: Icon,
+  iconSide = "left",
 }: {
   id: string;
   label: string;
@@ -248,12 +255,17 @@ function Field({
   autoComplete?: string;
   inputMode?: "text" | "tel" | "numeric" | "email";
   rows?: number;
+  icon?: FieldIcon;
+  iconSide?: "left" | "right";
 }) {
-  const [focused, setFocused] = useState(false);
-  const floated = focused || value.length > 0;
-  const className = `contact-input ${
-    error ? "contact-input-error" : ""
-  } ${multiline ? "contact-input-area" : ""}`;
+  const hasLeftIcon = Boolean(Icon && iconSide === "left");
+  const hasRightIcon = Boolean(Icon && iconSide === "right");
+  const className = [
+    multiline ? `${fieldBase} min-h-[84px] resize-none pt-7 pb-3` : fieldInput,
+    hasLeftIcon ? "pl-11" : "pl-4",
+    hasRightIcon ? "pr-11" : "pr-4",
+    error ? fieldError : "",
+  ].join(" ");
 
   const common = {
     id,
@@ -261,11 +273,7 @@ function Field({
     value,
     onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
       onChange(e.target.value),
-    onFocus: () => setFocused(true),
-    onBlur: () => {
-      setFocused(false);
-      onBlur();
-    },
+    onBlur: () => onBlur(),
     "aria-invalid": error ? true : undefined,
     "aria-describedby": error ? `${id}-error` : undefined,
   };
@@ -284,9 +292,20 @@ function Field({
             inputMode={inputMode}
           />
         )}
+        {Icon && (
+          <Icon
+            size={16}
+            aria-hidden="true"
+            className={`${fieldIcon} ${
+              iconSide === "right" ? "right-4" : "left-4"
+            }`}
+          />
+        )}
         <label
           htmlFor={id}
-          className={`contact-label ${floated ? "contact-label-float" : ""}`}
+          className={`${fieldLabel} ${multiline ? "top-4" : ""} ${
+            multiline ? labelFloatedArea : labelFloated
+          } ${hasLeftIcon ? "left-11" : "left-4"}`}
         >
           {label}
           {required && <span className="text-[var(--brand-cta)]"> *</span>}
@@ -370,9 +389,9 @@ function DateField({
           aria-controls="date-calendar"
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? "date-error" : undefined}
-          className={`contact-input contact-trigger ${
-            open ? "contact-trigger-open" : ""
-          } ${error ? "contact-input-error" : ""}`}
+          className={`${fieldInput} flex cursor-pointer appearance-none select-none items-center pr-11 text-left ${
+            open ? "border-[var(--accent)] ring-4 ring-[var(--accent-soft)]" : ""
+          } ${error ? fieldError : ""}`}
           onClick={() => (open ? close() : setOpen(true))}
           onKeyDown={(e) => {
             if (
@@ -385,8 +404,8 @@ function DateField({
           }}
         >
           <span
-            className={`contact-trigger-value ${
-              value === "" && focused ? "contact-trigger-placeholder" : ""
+            className={`block truncate text-sm font-medium ${
+              value ? "text-[var(--fg)]" : "text-[var(--fg-muted)]"
             }`}
           >
             {value ? formatDate(value) : focused || open ? "Select Date" : ""}
@@ -394,13 +413,17 @@ function DateField({
         </button>
         <label
           htmlFor="date"
-          className={`contact-label ${floated ? "contact-label-float" : ""}`}
+          className={`pointer-events-none absolute left-4 text-sm font-medium transition-all duration-200 ${
+            floated
+              ? "top-2.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-[var(--accent)]"
+              : "top-1/2 -translate-y-1/2 text-[var(--fg-muted)]"
+          }`}
         >
           {label}
           {required && <span className="text-[var(--brand-cta)]"> *</span>}
         </label>
-        <span className="contact-input-icon" aria-hidden="true">
-          <CalendarIcon size={15} />
+        <span className={`${fieldIcon} right-4`} aria-hidden="true">
+          <CalendarIcon size={16} />
         </span>
         {open && (
           <div
@@ -547,9 +570,9 @@ function TimeField({
           aria-autocomplete="none"
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? "time-error" : undefined}
-          className={`contact-input contact-trigger ${
-            open ? "contact-trigger-open" : ""
-          } ${error ? "contact-input-error" : ""}`}
+          className={`${fieldInput} flex cursor-pointer appearance-none select-none items-center pr-11 text-left ${
+            open ? "border-[var(--accent)] ring-4 ring-[var(--accent-soft)]" : ""
+          } ${error ? fieldError : ""}`}
           onClick={() => (open ? close() : setOpen(true))}
           onKeyDown={(e) => {
             if (
@@ -562,8 +585,8 @@ function TimeField({
           }}
         >
           <span
-            className={`contact-trigger-value ${
-              value === "" && focused ? "contact-trigger-placeholder" : ""
+            className={`block truncate text-sm font-medium ${
+              value ? "text-[var(--fg)]" : "text-[var(--fg-muted)]"
             }`}
           >
             {value ? formatTime(value) : focused || open ? "Select Time" : ""}
@@ -571,13 +594,17 @@ function TimeField({
         </button>
         <label
           htmlFor="time"
-          className={`contact-label ${floated ? "contact-label-float" : ""}`}
+          className={`pointer-events-none absolute left-4 text-sm font-medium transition-all duration-200 ${
+            floated
+              ? "top-2.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-[var(--accent)]"
+              : "top-1/2 -translate-y-1/2 text-[var(--fg-muted)]"
+          }`}
         >
           {label}
           {required && <span className="text-[var(--brand-cta)]"> *</span>}
         </label>
-        <span className="contact-input-icon" aria-hidden="true">
-          <ClockIcon size={15} />
+        <span className={`${fieldIcon} right-4`} aria-hidden="true">
+          <ClockIcon size={16} />
         </span>
         {open && (
           <div
@@ -654,8 +681,8 @@ function GuestsField({
           }}
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? "guests-error" : undefined}
-          className={`contact-input appearance-none pr-10 ${
-            error ? "contact-input-error" : ""
+          className={`${fieldBase} h-[52px] cursor-pointer appearance-none pl-11 pr-10 [&>option]:bg-[var(--bg-soft)] [&>option]:text-[var(--fg)] ${
+            error ? fieldError : ""
           }`}
         >
           <option value="" disabled hidden />
@@ -665,17 +692,25 @@ function GuestsField({
             </option>
           ))}
         </select>
+        <span className={`${fieldIcon} left-4`} aria-hidden="true">
+          <UsersIcon size={16} />
+        </span>
+        <ChevronDownIcon
+          size={16}
+          aria-hidden="true"
+          className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[var(--fg-muted)]"
+        />
         <label
           htmlFor="guests"
-          className={`contact-label ${floated ? "contact-label-float" : ""}`}
+          className={`pointer-events-none absolute left-11 text-sm font-medium transition-all duration-200 ${
+            floated
+              ? "top-2.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-[var(--accent)]"
+              : "top-1/2 -translate-y-1/2 text-[var(--fg-muted)]"
+          }`}
         >
           {formLabels.guests}
           <span className="text-[var(--brand-cta)]"> *</span>
         </label>
-        <ChevronDownIcon
-          size={15}
-          className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[var(--contact-label)]"
-        />
       </div>
       <p
         id="guests-error"
@@ -713,7 +748,7 @@ function OccasionField({
             setFocused(false);
             onBlur();
           }}
-          className="contact-input appearance-none pr-10"
+          className={`${fieldBase} h-[52px] cursor-pointer appearance-none pl-11 pr-10 [&>option]:bg-[var(--bg-soft)] [&>option]:text-[var(--fg)]`}
         >
           <option value="" disabled hidden />
           {occasionOptions.map((option) => (
@@ -722,107 +757,27 @@ function OccasionField({
             </option>
           ))}
         </select>
+        <span className={`${fieldIcon} left-4`} aria-hidden="true">
+          <SparklesIcon size={16} />
+        </span>
+        <ChevronDownIcon
+          size={16}
+          aria-hidden="true"
+          className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[var(--fg-muted)]"
+        />
         <label
           htmlFor="occasion"
-          className={`contact-label ${floated ? "contact-label-float" : ""}`}
+          className={`pointer-events-none absolute left-11 text-sm font-medium transition-all duration-200 ${
+            floated
+              ? "top-2.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-[var(--accent)]"
+              : "top-1/2 -translate-y-1/2 text-[var(--fg-muted)]"
+          }`}
         >
           {formLabels.occasion}
         </label>
-        <ChevronDownIcon
-          size={15}
-          className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[var(--contact-label)]"
-        />
       </div>
       <p id="occasion-error" className="contact-field-error" />
     </div>
-  );
-}
-
-/* --------------------- Restaurant info rows --------------------- */
-
-function ActionLink({
-  href,
-  icon: Icon,
-  external,
-  children,
-}: {
-  href: string;
-  icon: React.ComponentType<{ size?: number }>;
-  external?: boolean;
-  children: ReactNode;
-}) {
-  return (
-    <a
-      href={href}
-      {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-      className="contact-action"
-    >
-      <Icon size={13} />
-      <span>{children}</span>
-      <ArrowRightIcon size={13} className="contact-action-arrow" />
-    </a>
-  );
-}
-
-function InfoRow({
-  icon: Icon,
-  title,
-  children,
-  action,
-  index,
-}: {
-  icon: React.ComponentType<{ size?: number }>;
-  title: string;
-  children: ReactNode;
-  action?: ReactNode;
-  index: number;
-}) {
-  return (
-    <div
-      className="group contact-item border-t border-[var(--hairline)] py-4 first:border-t-0 first:pt-0"
-      style={{ "--d": `${320 + index * STAGGER_MS}ms` } as React.CSSProperties}
-    >
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[var(--accent-soft)] bg-[var(--accent-soft)] text-[var(--accent)] transition-transform duration-300 ease-out group-hover:scale-105">
-          <Icon size={15} />
-        </span>
-        <div className="min-w-0 flex-1">
-          <h4 className="text-[0.6rem] font-medium uppercase tracking-[0.2em] text-[var(--fg-muted)] transition-colors duration-300 ease-out group-hover:text-[var(--accent)]">
-            {title}
-          </h4>
-          <div className="mt-1 text-[0.9rem] font-medium leading-snug text-[var(--fg)]">
-            {children}
-          </div>
-        </div>
-        {action && <div className="shrink-0 sm:ml-auto">{action}</div>}
-      </div>
-    </div>
-  );
-}
-
-function OpenStatusBadge({ open }: { open: boolean }) {
-  return (
-    <span
-      className={`inline-flex h-[30px] items-center gap-2 rounded-full border px-3.5 text-[0.6rem] font-semibold uppercase tracking-[0.14em] transition-colors duration-500 ${
-        open
-          ? "border-[rgba(37,211,102,0.45)] bg-[rgba(37,211,102,0.12)] text-[#1e9c52]"
-          : "border-[rgba(192,57,43,0.4)] bg-[rgba(192,57,43,0.1)] text-[var(--brand-cta)]"
-      }`}
-    >
-      <span className="relative flex h-2 w-2" aria-hidden="true">
-        <span
-          className={`absolute inline-flex h-full w-full rounded-full ${
-            open ? "animate-ping bg-[#25d366] opacity-60" : ""
-          }`}
-        />
-        <span
-          className={`relative inline-flex h-2 w-2 rounded-full ${
-            open ? "bg-[#25d366]" : "bg-[var(--brand-cta)]"
-          }`}
-        />
-      </span>
-      {open ? "Open Now" : "Closed"}
-    </span>
   );
 }
 
@@ -998,10 +953,10 @@ function EnquiryForm({
       noValidate
       aria-busy={status === "submitting"}
     >
-      <div className="space-y-6">
+      <div className="space-y-4 lg:space-y-8">
         <div>
-          <p className="contact-group-label">Your Details</p>
-          <div className="mt-3 grid min-[360px]:grid-cols-2 gap-x-4 gap-y-4">
+          <SectionLabel>Your Details</SectionLabel>
+          <div className="grid gap-x-4 gap-y-4 sm:grid-cols-2 lg:gap-y-5">
             <Field
               id="name"
               label={enquiryForm.name}
@@ -1011,6 +966,7 @@ function EnquiryForm({
               error={touched.name ? errors.name : undefined}
               required
               autoComplete="name"
+              icon={UserIcon}
             />
             <Field
               id="phone"
@@ -1023,12 +979,13 @@ function EnquiryForm({
               type="tel"
               inputMode="tel"
               autoComplete="tel"
+              icon={PhoneIcon}
             />
           </div>
         </div>
         <div>
-          <p className="contact-group-label">Your Message</p>
-          <div className="mt-3 space-y-4">
+          <SectionLabel>Your Message</SectionLabel>
+          <div className="space-y-4 lg:space-y-5">
             <Field
               id="email"
               label={enquiryForm.email}
@@ -1039,6 +996,7 @@ function EnquiryForm({
               type="email"
               inputMode="email"
               autoComplete="email"
+              icon={MailIcon}
             />
             <Field
               id="subject"
@@ -1077,7 +1035,7 @@ function EnquiryForm({
         ref={submitBtnRef}
         type="submit"
         disabled={status === "submitting"}
-        className="btn btn-brand contact-cta mt-7 w-full disabled:cursor-not-allowed disabled:opacity-75"
+        className="mt-9 hidden w-full items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-r from-red-500 to-orange-400 px-6 py-4 text-sm font-bold uppercase tracking-[0.14em] text-white shadow-lg shadow-[rgba(255,112,67,0.35)] transition-all duration-200 hover:-translate-y-0.5 hover:brightness-110 hover:shadow-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--contact-card-bg)] active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-75 lg:inline-flex"
       >
         {status === "submitting" ? (
           <span className="flex items-center gap-3">
@@ -1094,9 +1052,10 @@ function EnquiryForm({
           </span>
         )}
       </button>
-      <p className="mt-4 text-center text-[0.7rem] font-normal tracking-[0.02em] text-[var(--fg-muted)]">
+      <p className="mt-5 text-center text-[0.7rem] font-normal tracking-[0.02em] text-[var(--fg-muted)]">
         {enquiryForm.footnote}
       </p>
+      <div className="h-28 lg:hidden" aria-hidden="true" />
     </form>
   );
 }
@@ -1112,9 +1071,9 @@ export function Contact({ info }: { info: BranchContactInfo }) {
   const enqSubmitBtnRef = useRef<HTMLButtonElement>(null);
 
   const [mode, setMode] = useState<"reservation" | "message">("reservation");
+  const [step, setStep] = useState<1 | 2>(1);
   const [inView, setInView] = useState(false);
-  const [formInView, setFormInView] = useState(false);
-  const [submitInView, setSubmitInView] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const [values, setValues] = useState<Values>(EMPTY);
   const [errors, setErrors] = useState<Partial<Record<ReservationFieldKey, string>>>({});
   const [touched, setTouched] = useState<Partial<Record<ReservationFieldKey, boolean>>>({});
@@ -1123,12 +1082,6 @@ export function Contact({ info }: { info: BranchContactInfo }) {
   const [reservationNumber, setReservationNumber] = useState<string | null>(null);
   const [enqStatus, setEnqStatus] = useState<EnquiryStatus>("idle");
   const [enqNumber, setEnqNumber] = useState<string | null>(null);
-
-  const hour = useCurrentHour();
-  const isOpen =
-    hour === null
-      ? null
-      : hour >= info.openFromHour && hour < info.openToHour;
 
   useEffect(() => {
     const el = sectionRef.current;
@@ -1147,35 +1100,16 @@ export function Contact({ info }: { info: BranchContactInfo }) {
   }, []);
 
   useEffect(() => {
-    const el = formWrapRef.current;
-    if (!el) return;
-    const io = new IntersectionObserver(
-      ([entry]) => setFormInView(entry.isIntersecting),
-      { rootMargin: "0px 0px -25% 0px", threshold: 0 }
-    );
-    io.observe(el);
-    return () => io.disconnect();
+    const mq = window.matchMedia("(max-width: 1023px)");
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
   }, []);
 
-  useEffect(() => {
-    const el =
-      mode === "message" ? enqSubmitBtnRef.current : submitBtnRef.current;
-    if (!el) return;
-    const io = new IntersectionObserver(
-      ([entry]) => setSubmitInView(entry.isIntersecting),
-      { rootMargin: "0px 0px -40px 0px", threshold: 0 }
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, [status, enqStatus, mode]);
-
-  const showSticky =
-    formInView &&
-    !submitInView &&
-    status !== "success" &&
-    status !== "submitting" &&
-    enqStatus !== "success" &&
-    enqStatus !== "submitting";
+  const barHidden =
+    (mode === "reservation" && status === "success") ||
+    (mode === "message" && enqStatus === "success");
 
   const setField = (key: ReservationFieldKey, value: string) => {
     const next = { ...values, [key]: value };
@@ -1190,9 +1124,48 @@ export function Contact({ info }: { info: BranchContactInfo }) {
     setErrors((prev) => ({ ...prev, [key]: validateOne(key, values) }));
   };
 
+  const goToStep = (next: 1 | 2) => {
+    setStep(next);
+    formWrapRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const handleNext = () => {
+    const nextTouched = { name: true, phone: true } as const;
+    const nextErrors = {
+      name: validateOne("name", values),
+      phone: validateOne("phone", values),
+    };
+    setTouched(nextTouched);
+    setErrors(nextErrors);
+    const first = (["name", "phone"] as const).find((key) => nextErrors[key]);
+    if (first) {
+      document.getElementById(first)?.focus();
+      return;
+    }
+    goToStep(2);
+  };
+
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (status === "submitting") return;
+
+    if (isMobile && step === 1) {
+      handleNext();
+      return;
+    }
+
+    if (isMobile && step === 2) {
+      const detailsErrors = {
+        name: validateOne("name", values),
+        phone: validateOne("phone", values),
+      };
+      if (detailsErrors.name || detailsErrors.phone) {
+        setTouched((prev) => ({ ...prev, name: true, phone: true }));
+        setErrors((prev) => ({ ...prev, ...detailsErrors }));
+        goToStep(1);
+        return;
+      }
+    }
 
     const nextTouched = {
       name: true,
@@ -1237,6 +1210,7 @@ export function Contact({ info }: { info: BranchContactInfo }) {
     setStatus("idle");
     setSubmitError("");
     setReservationNumber(null);
+    setStep(1);
   };
 
   const handleEnquiryReset = () => {
@@ -1247,7 +1221,7 @@ export function Contact({ info }: { info: BranchContactInfo }) {
 
   const switchMode = (next: "reservation" | "message") => {
     setMode(next);
-    setSubmitInView(false);
+    setStep(1);
     setEnqNumber(null);
     setEnqStatus("idle");
   };
@@ -1289,110 +1263,35 @@ export function Contact({ info }: { info: BranchContactInfo }) {
           </p>
         </div>
 
-        <div className="mt-14 grid gap-6 lg:mt-16 lg:grid-cols-[minmax(0,3fr)_minmax(0,7fr)] lg:gap-10">
-          {/* ---- Left: restaurant information ---- */}
+        <div className="mt-14 lg:mt-16">
+          {/* ---- Quick contact strip ---- */}
           <div
-            className="contact-item rounded-[28px] border border-[var(--contact-card-border)] bg-[var(--contact-card-bg)] p-6 shadow-[var(--contact-card-shadow)] backdrop-blur-[16px] sm:p-7"
+            className="contact-item mx-auto mb-8 flex w-full max-w-[800px] flex-col gap-3 sm:flex-row"
             style={{ "--d": "320ms" } as React.CSSProperties}
           >
-            <div>
-              <h3
-                className="text-[1.1rem] font-bold leading-snug text-[var(--fg)]"
-                style={{ fontFamily: "var(--font-serif)" }}
-              >
-                {infoCard.title}
-              </h3>
-              <p className="mt-2 text-[0.82rem] font-normal leading-[1.7] text-[var(--fg-soft)]">
-                {infoCard.description}
-              </p>
-            </div>
-
-            <div className="mt-5">
-              <InfoRow
-                icon={PhoneIcon}
-                title="Call Us"
-                index={0}
-                action={
-                  <ActionLink
-                    href={telHref(info.phones[0])}
-                    icon={PhoneIcon}
-                  >
-                    Call Now
-                  </ActionLink>
-                }
-              >
-                <div className="space-y-0.5">
-                  {info.phones.map((phone) => (
-                    <p key={phone}>{phone}</p>
-                  ))}
-                </div>
-              </InfoRow>
-
-              <InfoRow
-                icon={WhatsAppIcon}
-                title="WhatsApp"
-                index={1}
-                action={
-                  <ActionLink
-                    href={waHref(info.whatsapp || info.phones[0], info.whatsappMessage)}
-                    icon={WhatsAppIcon}
-                    external
-                  >
-                    Open WhatsApp
-                  </ActionLink>
-                }
-              >
-                Chat with us instantly.
-              </InfoRow>
-
-              <InfoRow
-                icon={MapPinIcon}
-                title="Visit Us"
-                index={2}
-                action={
-                  <ActionLink
-                    href={directionsUrl({
-                      address: info.addresses[0],
-                    } as Parameters<typeof directionsUrl>[0])}
-                    icon={MapPinIcon}
-                    external
-                  >
-                    Get Directions
-                  </ActionLink>
-                }
-              >
-                <div className="space-y-0.5">
-                  {info.addresses.map((address) => (
-                    <p key={address}>{address}</p>
-                  ))}
-                </div>
-              </InfoRow>
-
-              <InfoRow
-                icon={ClockIcon}
-                title="Opening Hours"
-                index={3}
-                action={
-                  isOpen === null
-                    ? null
-                    : <OpenStatusBadge open={isOpen} />
-                }
-              >
-                <div>
-                  <p>{info.hoursNote}</p>
-                  <p className="mt-0.5 text-[0.78rem] font-normal text-[var(--fg-muted)]">
-                    {info.hours}
-                  </p>
-                </div>
-              </InfoRow>
-            </div>
+            <a
+              href={telHref(info.phones[0])}
+              className="btn btn-brand btn-lg flex-1"
+            >
+              <PhoneIcon size={15} />
+              Call Now
+            </a>
+            <a
+              href={waHref(info.whatsapp || info.phones[0], info.whatsappMessage)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn-wa btn-lg flex-1"
+            >
+              <WhatsAppIcon size={15} />
+              WhatsApp
+            </a>
           </div>
 
-          {/* ---- Right: reservation form ---- */}
+          {/* ---- Reservation / enquiry form ---- */}
           <div
             id="reservation"
             ref={formWrapRef}
-            className="contact-item scroll-mt-28 rounded-[28px] border border-[var(--contact-card-border)] bg-[var(--contact-card-bg)] p-6 shadow-[var(--contact-card-shadow)] backdrop-blur-[16px] sm:p-8 lg:p-9"
+            className="contact-item mx-auto w-full max-w-[800px] scroll-mt-28 rounded-[28px] border border-[var(--contact-card-border)] bg-[var(--contact-card-bg)] p-6 shadow-[var(--contact-card-shadow)] backdrop-blur-[16px] sm:p-8 lg:p-9"
             style={{ "--d": "700ms" } as React.CSSProperties}
           >
             {mode === "message" && enqStatus === "success" ? (
@@ -1415,11 +1314,11 @@ export function Contact({ info }: { info: BranchContactInfo }) {
               />
             ) : (
               <>
-                <div className="mb-7">
+                <div className="mb-10">
                   <div
                     role="tablist"
                     aria-label="Contact form"
-                    className="flex w-full max-w-[320px] rounded-full border border-[var(--contact-card-border)] bg-[var(--contact-tabs-bg)] p-1"
+                    className="grid w-full max-w-[360px] grid-cols-2 gap-1 rounded-full border border-[var(--contact-card-border)] bg-[var(--contact-tabs-bg)] p-1"
                   >
                     <button
                       type="button"
@@ -1428,16 +1327,14 @@ export function Contact({ info }: { info: BranchContactInfo }) {
                       aria-selected={mode === "reservation"}
                       aria-controls="panel-book"
                       onClick={() => switchMode("reservation")}
-                      className={`flex-1 rounded-full px-4 py-2 text-[0.78rem] font-semibold tracking-[0.03em] transition-colors duration-200 ${
+                      className={`flex min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-4 py-2.5 text-[0.78rem] font-semibold tracking-[0.03em] transition-all duration-300 ${
                         mode === "reservation"
-                          ? "bg-[var(--contact-tabs-active-bg)] text-[var(--contact-tabs-active-fg)] shadow-[var(--contact-tabs-shadow)]"
-                          : "text-[var(--fg-muted)] hover:text-[var(--fg)]"
+                          ? "bg-gradient-to-r from-red-500 to-orange-400 text-white shadow-lg shadow-[rgba(255,112,67,0.35)]"
+                          : "text-[var(--fg-soft)] hover:text-[var(--fg)]"
                       }`}
                     >
-                      <span className="flex items-center justify-center gap-2">
-                        <CalendarIcon size={14} />
-                        Reserve a Table
-                      </span>
+                      <CalendarIcon size={14} className="shrink-0" />
+                      <span className="truncate">Reserve a Table</span>
                     </button>
                     <button
                       type="button"
@@ -1446,16 +1343,14 @@ export function Contact({ info }: { info: BranchContactInfo }) {
                       aria-selected={mode === "message"}
                       aria-controls="panel-message"
                       onClick={() => switchMode("message")}
-                      className={`flex-1 rounded-full px-4 py-2 text-[0.78rem] font-semibold tracking-[0.03em] transition-colors duration-200 ${
+                      className={`flex min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-4 py-2.5 text-[0.78rem] font-semibold tracking-[0.03em] transition-all duration-300 ${
                         mode === "message"
-                          ? "bg-[var(--contact-tabs-active-bg)] text-[var(--contact-tabs-active-fg)] shadow-[var(--contact-tabs-shadow)]"
-                          : "text-[var(--fg-muted)] hover:text-[var(--fg)]"
+                          ? "bg-gradient-to-r from-red-500 to-orange-400 text-white shadow-lg shadow-[rgba(255,112,67,0.35)]"
+                          : "text-[var(--fg-soft)] hover:text-[var(--fg)]"
                       }`}
                     >
-                      <span className="flex items-center justify-center gap-2">
-                        <MailIcon size={14} />
-                        Send a Message
-                      </span>
+                      <MessageSquareIcon size={14} className="shrink-0" />
+                      <span className="truncate">Send a Message</span>
                     </button>
                   </div>
                 </div>
@@ -1485,10 +1380,32 @@ export function Contact({ info }: { info: BranchContactInfo }) {
                       noValidate
                       aria-busy={status === "submitting"}
                     >
-                      <div className="space-y-6">
-                        <div>
-                          <p className="contact-group-label">Your Details</p>
-                          <div className="mt-3 grid min-[360px]:grid-cols-2 gap-x-4 gap-y-4">
+                      <div className="space-y-4 lg:space-y-8">
+                        <div className="lg:hidden">
+                          <div className="flex items-center justify-between">
+                            <p className="contact-step-label">
+                              Step {step} of 2
+                            </p>
+                            <p className="contact-step-hint">
+                              {step === 1
+                                ? "Your Details"
+                                : "Reservation Details"}
+                            </p>
+                          </div>
+                          <div
+                            className="contact-step-track"
+                            aria-hidden="true"
+                          >
+                            <div
+                              className="contact-step-fill"
+                              style={{ width: step === 1 ? "50%" : "100%" }}
+                            />
+                          </div>
+                        </div>
+
+                        <div className={step === 1 ? "" : "hidden lg:block"}>
+                          <SectionLabel>Your Details</SectionLabel>
+                          <div className="grid gap-x-4 gap-y-4 sm:grid-cols-2 lg:gap-y-5">
                             <Field
                               id="name"
                               label={formLabels.name}
@@ -1498,6 +1415,7 @@ export function Contact({ info }: { info: BranchContactInfo }) {
                               error={touched.name ? errors.name : undefined}
                               required
                               autoComplete="name"
+                              icon={UserIcon}
                             />
                             <Field
                               id="phone"
@@ -1510,12 +1428,14 @@ export function Contact({ info }: { info: BranchContactInfo }) {
                               type="tel"
                               inputMode="tel"
                               autoComplete="tel"
+                              icon={PhoneIcon}
                             />
                           </div>
                         </div>
-                        <div>
-                          <p className="contact-group-label">Reservation Details</p>
-                          <div className="mt-3 grid min-[360px]:grid-cols-2 gap-x-4 gap-y-4">
+
+                        <div className={step === 2 ? "" : "hidden lg:block"}>
+                          <SectionLabel>Reservation Details</SectionLabel>
+                          <div className="grid gap-x-4 gap-y-4 sm:grid-cols-2 lg:gap-y-5">
                             <GuestsField
                               value={values.guests}
                               onChange={(v) => setField("guests", v)}
@@ -1545,9 +1465,10 @@ export function Contact({ info }: { info: BranchContactInfo }) {
                             />
                           </div>
                         </div>
-                        <div>
-                          <p className="contact-group-label">Notes</p>
-                          <div className="mt-3">
+
+                        <div className={step === 2 ? "" : "hidden lg:block"}>
+                          <SectionLabel>Notes</SectionLabel>
+                          <div className="space-y-4 lg:space-y-5">
                             <Field
                               id="request"
                               label={formLabels.request}
@@ -1574,7 +1495,7 @@ export function Contact({ info }: { info: BranchContactInfo }) {
                         ref={submitBtnRef}
                         type="submit"
                         disabled={status === "submitting"}
-                        className="btn btn-brand contact-cta mt-7 w-full disabled:cursor-not-allowed disabled:opacity-75"
+                        className="mt-9 hidden w-full items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-r from-red-500 to-orange-400 px-6 py-4 text-sm font-bold uppercase tracking-[0.14em] text-white shadow-lg shadow-[rgba(255,112,67,0.35)] transition-all duration-200 hover:-translate-y-0.5 hover:brightness-110 hover:shadow-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--contact-card-bg)] active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-75 lg:inline-flex"
                       >
                         {status === "submitting" ? (
                           <span className="flex items-center gap-3">
@@ -1591,9 +1512,10 @@ export function Contact({ info }: { info: BranchContactInfo }) {
                           </span>
                         )}
                       </button>
-                      <p className="mt-4 text-center text-[0.7rem] font-normal tracking-[0.02em] text-[var(--fg-muted)]">
+                      <p className="mt-5 text-center text-[0.7rem] font-normal tracking-[0.02em] text-[var(--fg-muted)]">
                         {submitCta.footnote}
                       </p>
+                      <div className="h-28 lg:hidden" aria-hidden="true" />
                     </form>
                   </div>
                 )}
@@ -1603,38 +1525,52 @@ export function Contact({ info }: { info: BranchContactInfo }) {
         </div>
       </div>
 
-      {/* ---- Sticky mobile Reserve bar ---- */}
+      {/* ---- Sticky mobile action bar ---- */}
       <div
         className={`fixed inset-x-0 bottom-0 z-40 border-t border-[var(--contact-sticky-border)] bg-[var(--contact-sticky-bg)] py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-[18px] backdrop-saturate-150 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] lg:hidden ${
-          showSticky
-            ? "translate-y-0 opacity-100"
-            : "pointer-events-none translate-y-full opacity-0"
+          barHidden
+            ? "pointer-events-none translate-y-full opacity-0"
+            : "translate-y-0 opacity-100"
         }`}
       >
         <div className="mx-auto max-w-[1400px] px-4">
-          <button
-            type="button"
-            onClick={() => {
-              if (mode === "message") {
-                enqFormRef.current?.requestSubmit();
-              } else {
-                formRef.current?.requestSubmit();
-              }
-            }}
-            className="btn btn-brand btn-lg w-full"
-          >
-            {mode === "message" ? (
-              <>
-                <MailIcon size={16} />
-                Send Message
-              </>
-            ) : (
-              <>
+          {mode === "message" ? (
+            <button
+              type="button"
+              onClick={() => enqFormRef.current?.requestSubmit()}
+              className="flex w-full items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-r from-red-500 to-orange-400 px-6 py-3.5 text-sm font-bold uppercase tracking-[0.14em] text-white shadow-lg shadow-[rgba(255,112,67,0.35)] transition-all duration-200 active:translate-y-0"
+            >
+              <MailIcon size={16} />
+              Send Message
+            </button>
+          ) : step === 1 ? (
+            <button
+              type="button"
+              onClick={handleNext}
+              className="flex w-full items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-r from-red-500 to-orange-400 px-6 py-3.5 text-sm font-bold uppercase tracking-[0.14em] text-white shadow-lg shadow-[rgba(255,112,67,0.35)] transition-all duration-200 active:translate-y-0"
+            >
+              Next
+              <ArrowRightIcon size={16} />
+            </button>
+          ) : (
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => goToStep(1)}
+                className="btn btn-outline btn-lg flex-1"
+              >
+                Back
+              </button>
+              <button
+                type="button"
+                onClick={() => formRef.current?.requestSubmit()}
+                className="flex flex-1 items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-r from-red-500 to-orange-400 px-6 py-3.5 text-sm font-bold uppercase tracking-[0.14em] text-white shadow-lg shadow-[rgba(255,112,67,0.35)] transition-all duration-200 active:translate-y-0"
+              >
                 <CalendarIcon size={16} />
                 Reserve Table
-              </>
-            )}
-          </button>
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </section>
