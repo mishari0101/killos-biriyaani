@@ -45,34 +45,16 @@ function toBusinessHours(value: unknown): DayHours[] {
 export function rowToSettings(row: SettingsRow): SettingsData {
   return {
     restaurantName: row.restaurantName,
-    tagline: row.tagline,
-    shortDescription: row.shortDescription,
-    longDescription: row.longDescription,
-    logoUrl: row.logoUrl,
-    faviconUrl: row.faviconUrl,
-
     primaryPhone: row.primaryPhone,
-    secondaryPhone: row.secondaryPhone,
     whatsappNumber: row.whatsappNumber,
     email: row.email,
-
     businessHours: toBusinessHours(row.businessHours),
-    socialMedia: toSocialMedia(row.socialMedia),
-
-    metaTitle: row.metaTitle,
-    metaDescription: row.metaDescription,
-    keywords: row.keywords,
-    ogImageUrl: row.ogImageUrl,
-
-    darkModeDefault: row.darkModeDefault,
-    accentColor: row.accentColor,
-    primaryColor: row.primaryColor,
-    secondaryColor: row.secondaryColor,
-
     mapsEmbedUrl: row.mapsEmbedUrl,
-    latitude: row.latitude,
-    longitude: row.longitude,
-
+    socialMedia: toSocialMedia(row.socialMedia),
+    logoUrl: row.logoUrl,
+    faviconUrl: row.faviconUrl,
+    ogImageUrl: row.ogImageUrl,
+    accentColor: row.accentColor,
     updatedAt: row.updatedAt.toISOString(),
   };
 }
@@ -81,28 +63,16 @@ export function rowToSettings(row: SettingsRow): SettingsData {
 function toStoreInput(data: SettingsData): Record<string, unknown> {
   return {
     restaurantName: data.restaurantName,
-    tagline: data.tagline,
-    shortDescription: data.shortDescription,
-    longDescription: data.longDescription,
-    logoUrl: data.logoUrl,
-    faviconUrl: data.faviconUrl,
     primaryPhone: data.primaryPhone,
-    secondaryPhone: data.secondaryPhone,
     whatsappNumber: data.whatsappNumber,
     email: data.email,
     businessHours: data.businessHours,
-    socialMedia: data.socialMedia,
-    metaTitle: data.metaTitle,
-    metaDescription: data.metaDescription,
-    keywords: data.keywords,
-    ogImageUrl: data.ogImageUrl,
-    darkModeDefault: data.darkModeDefault,
-    accentColor: data.accentColor,
-    primaryColor: data.primaryColor,
-    secondaryColor: data.secondaryColor,
     mapsEmbedUrl: data.mapsEmbedUrl,
-    latitude: data.latitude,
-    longitude: data.longitude,
+    socialMedia: data.socialMedia,
+    logoUrl: data.logoUrl,
+    faviconUrl: data.faviconUrl,
+    ogImageUrl: data.ogImageUrl,
+    accentColor: data.accentColor,
   };
 }
 

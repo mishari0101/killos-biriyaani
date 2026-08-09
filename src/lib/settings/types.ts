@@ -1,28 +1,16 @@
 /** Raw row as stored in Firestore (includes the single-owner admin account). */
 export interface SettingsRow {
   restaurantName: string;
-  tagline: string;
-  shortDescription: string;
-  longDescription: string;
   logoUrl: string;
   faviconUrl: string;
   primaryPhone: string;
-  secondaryPhone: string;
   whatsappNumber: string;
   email: string;
   businessHours: unknown;
   socialMedia: unknown;
-  metaTitle: string;
-  metaDescription: string;
-  keywords: string;
   ogImageUrl: string;
-  darkModeDefault: boolean;
   accentColor: string;
-  primaryColor: string;
-  secondaryColor: string;
   mapsEmbedUrl: string;
-  latitude: number;
-  longitude: number;
   adminName: string;
   adminEmail: string;
   adminPasswordHash: string;
@@ -58,42 +46,29 @@ export type SocialMedia = Record<SocialKey, SocialLink>;
 
 /** Wire shape returned by the API and used by the settings form. */
 export interface SettingsData {
-  // 1 — Restaurant Information
+  // 1 — Restaurant
   restaurantName: string;
-  tagline: string;
-  shortDescription: string;
-  longDescription: string;
-  logoUrl: string;
-  faviconUrl: string;
 
-  // 2 — Contact Information
+  // 2 — Contact
   primaryPhone: string;
-  secondaryPhone: string;
   whatsappNumber: string;
   email: string;
 
   // 3 — Business Hours
   businessHours: DayHours[];
 
-  // 4 — Social Media
+  // 4 — Location
+  mapsEmbedUrl: string;
+
+  // 5 — Social Media
   socialMedia: SocialMedia;
 
-  // 5 — SEO
-  metaTitle: string;
-  metaDescription: string;
-  keywords: string;
+  // Brand/SEO overrides — not edited in Settings, but still read by the public
+  // site with safe fallbacks (src/lib/seo/*, src/app/(site)/layout.tsx).
+  logoUrl: string;
+  faviconUrl: string;
   ogImageUrl: string;
-
-  // 6 — Theme
-  darkModeDefault: boolean;
   accentColor: string;
-  primaryColor: string;
-  secondaryColor: string;
-
-  // 7 — Location
-  mapsEmbedUrl: string;
-  latitude: number;
-  longitude: number;
 
   // meta
   updatedAt: string | null;
@@ -117,12 +92,4 @@ export const DAY_LABELS: Record<DayKey, string> = {
   friday: "Friday",
   saturday: "Saturday",
   sunday: "Sunday",
-};
-
-export const SOCIAL_LABELS: Record<SocialKey, string> = {
-  facebook: "Facebook",
-  instagram: "Instagram",
-  tiktok: "TikTok",
-  youtube: "YouTube",
-  website: "Website",
 };

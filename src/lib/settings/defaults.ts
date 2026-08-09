@@ -15,33 +15,21 @@ function defaultHours(): DayHours[] {
 /** Used when no settings row exists yet — seeds the singleton with sensible demo content. */
 export const DEFAULT_SETTINGS: SettingsData = {
   restaurantName: "Killo's Biriyani",
-  tagline: "Arabian Restaurant",
-  shortDescription: "",
-  longDescription: "",
-  logoUrl: "",
-  faviconUrl: "",
 
   primaryPhone: "",
-  secondaryPhone: "",
   whatsappNumber: "",
   email: "",
 
   businessHours: defaultHours(),
-  socialMedia: DEFAULT_SOCIAL_MEDIA,
-
-  metaTitle: "",
-  metaDescription: "",
-  keywords: "",
-  ogImageUrl: "",
-
-  darkModeDefault: false,
-  accentColor: "#c9a227",
-  primaryColor: "#1a1a1a",
-  secondaryColor: "#f4f4f2",
 
   mapsEmbedUrl: "",
-  latitude: 0,
-  longitude: 0,
+
+  socialMedia: DEFAULT_SOCIAL_MEDIA,
+
+  logoUrl: "",
+  faviconUrl: "",
+  ogImageUrl: "",
+  accentColor: "#c9a227",
 
   updatedAt: null,
 };

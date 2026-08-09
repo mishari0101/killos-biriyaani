@@ -130,52 +130,17 @@ export function SettingsForm({ initialSettings }: SettingsFormProps) {
     <div className="pb-32">
       <div className="space-y-6">
         {/* 1 — Restaurant */}
-        <SectionCard index="01" title="Restaurant" description="The name and logo that appear across the site." icon={BuildingIcon}>
-          <div className="admin-field-grid">
-            <TextInput
-              id="restaurantName"
-              label="Restaurant Name"
-              value={form.restaurantName}
-              onChange={(v) => patch("restaurantName", v)}
-              placeholder="Killo's Biriyani"
-              maxLength={120}
-              error={showErrors ? errors.restaurantName : undefined}
-              hint="Required — shown everywhere on the site."
-            />
-            <TextInput
-              id="tagline"
-              label="Tagline"
-              value={form.tagline}
-              onChange={(v) => patch("tagline", v)}
-              placeholder="Arabian Restaurant"
-              maxLength={200}
-              error={showErrors ? errors.tagline : undefined}
-              hint="A short phrase that sits next to the logo."
-            />
-          </div>
-
-          <div className="mt-5 admin-field-grid">
-            <TextInput
-              id="logoUrl"
-              label="Logo"
-              type="url"
-              value={form.logoUrl}
-              onChange={(v) => patch("logoUrl", v)}
-              placeholder="https://…/logo.png"
-              error={showErrors ? errors.logoUrl : undefined}
-              hint="Web address of your logo image."
-            />
-            <TextInput
-              id="faviconUrl"
-              label="Favicon"
-              type="url"
-              value={form.faviconUrl}
-              onChange={(v) => patch("faviconUrl", v)}
-              placeholder="https://…/favicon.png"
-              error={showErrors ? errors.faviconUrl : undefined}
-              hint="Web address of the small browser-tab icon."
-            />
-          </div>
+        <SectionCard index="01" title="Restaurant" description="The name that appears across the site." icon={BuildingIcon}>
+          <TextInput
+            id="restaurantName"
+            label="Restaurant Name"
+            value={form.restaurantName}
+            onChange={(v) => patch("restaurantName", v)}
+            placeholder="Killo's Biriyani"
+            maxLength={120}
+            error={showErrors ? errors.restaurantName : undefined}
+            hint="Required — shown everywhere on the site."
+          />
         </SectionCard>
 
         {/* 2 — Contact */}

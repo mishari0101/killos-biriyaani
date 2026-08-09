@@ -18,11 +18,6 @@ function asBoolean(value: unknown): boolean {
   return value === true;
 }
 
-function asNumber(value: unknown, fallback: number): number {
-  const n = typeof value === "number" ? value : parseFloat(String(value));
-  return Number.isFinite(n) ? n : fallback;
-}
-
 function toBusinessHours(value: unknown): DayHours[] {
   const source = Array.isArray(value) ? value : [];
   return DAYS.map((day) => {
@@ -56,34 +51,16 @@ function toSocialMedia(value: unknown): SocialMedia {
 function toSettingsData(raw: Record<string, unknown>): SettingsData {
   return {
     restaurantName: asString(raw.restaurantName),
-    tagline: asString(raw.tagline),
-    shortDescription: asString(raw.shortDescription),
-    longDescription: asString(raw.longDescription),
-    logoUrl: asString(raw.logoUrl),
-    faviconUrl: asString(raw.faviconUrl),
-
     primaryPhone: asString(raw.primaryPhone),
-    secondaryPhone: asString(raw.secondaryPhone),
     whatsappNumber: asString(raw.whatsappNumber),
     email: asString(raw.email),
-
     businessHours: toBusinessHours(raw.businessHours),
-    socialMedia: toSocialMedia(raw.socialMedia),
-
-    metaTitle: asString(raw.metaTitle),
-    metaDescription: asString(raw.metaDescription),
-    keywords: asString(raw.keywords),
-    ogImageUrl: asString(raw.ogImageUrl),
-
-    darkModeDefault: asBoolean(raw.darkModeDefault),
-    accentColor: asString(raw.accentColor),
-    primaryColor: asString(raw.primaryColor),
-    secondaryColor: asString(raw.secondaryColor),
-
     mapsEmbedUrl: asString(raw.mapsEmbedUrl),
-    latitude: asNumber(raw.latitude, 0),
-    longitude: asNumber(raw.longitude, 0),
-
+    socialMedia: toSocialMedia(raw.socialMedia),
+    logoUrl: asString(raw.logoUrl),
+    faviconUrl: asString(raw.faviconUrl),
+    ogImageUrl: asString(raw.ogImageUrl),
+    accentColor: asString(raw.accentColor),
     updatedAt: null,
   };
 }
