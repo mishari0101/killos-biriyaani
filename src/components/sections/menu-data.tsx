@@ -1,6 +1,9 @@
 import { menuCategories, menuItems } from "@/lib/content/menu";
 import { listMenuCategories, listMenuItems } from "@/lib/menu/service";
 import type { MenuItemData } from "@/lib/menu/types";
+import { listBranches, branchContactInfo } from "@/lib/branches/service";
+import { getSettingsSafe } from "@/lib/seo/public";
+import { contactInfo } from "@/lib/content/contact";
 import { Menu, type SectionCategory, type SectionMenuItem } from "./menu";
 
 function categoryToPillId(category: string): string {
@@ -29,6 +32,30 @@ function fallbackCategories(): SectionCategory[] {
   return menuCategories
     .filter((cat) => cat.id !== "all")
     .map((cat) => ({ id: cat.id, label: cat.label }));
+}
+
+/** Resolve the restaurant WhatsApp number with the same priority as the footer:
+ *  branch WhatsApp → branch phone → Settings → content default. */
+async function resolveWhatsAppPhone(): Promise<string> {
+  let phone: string = contactInfo.phones[0];
+  try {
+    const settings = await getSettingsSafe();
+    const configured = settings?.whatsappNumber.trim();
+    if (configured) phone = configured;
+  } catch {
+    /* keep fallback */
+  }
+  try {
+    const result = await listBranches({ pageSize: 50 });
+    const visible = result.items.filter((item) => item.visible);
+    if (visible.length > 0) {
+      const info = branchContactInfo(visible);
+      phone = info.whatsapp || info.phones[0];
+    }
+  } catch {
+    /* keep resolved fallback */
+  }
+  return phone;
 }
 
 export async function MenuData() {
@@ -68,5 +95,6 @@ export async function MenuData() {
     items = menuItems;
     categories = fallbackCategories();
   }
-  return <Menu items={items} categories={categories} />;
+  const waPhone = await resolveWhatsAppPhone();
+  return <Menu items={items} categories={categories} waPhone={waPhone} />;
 }

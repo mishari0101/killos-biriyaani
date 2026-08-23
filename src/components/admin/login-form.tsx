@@ -123,24 +123,24 @@ export function AdminLoginForm() {
         </div>
 
         <div className="flex items-center justify-between">
-          <label className="flex cursor-pointer items-center gap-2.5 text-[0.8rem] text-[var(--admin-fg-soft)]">
+          <label className="flex cursor-pointer select-none items-center gap-3 text-[0.8rem] text-[var(--admin-fg-soft)]">
             <button
               type="button"
               role="switch"
               aria-checked={remember}
               aria-label="Keep me signed in"
               onClick={() => setRemember((v) => !v)}
-              className={`relative h-5 w-9 rounded-full transition-colors duration-300 ${
+              className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full px-0.5 transition-colors duration-300 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-transparent ${
                 remember ? "bg-[var(--accent)]" : "bg-[var(--admin-border-strong)]"
               }`}
             >
               <span
-                className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform duration-300 ${
-                  remember ? "translate-x-4" : "translate-x-0.5"
+                className={`block h-4 w-4 rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.35)] transition-transform duration-300 ease-out ${
+                  remember ? "translate-x-4" : "translate-x-0"
                 }`}
               />
             </button>
-            Keep me signed in
+            <span className="leading-none">Keep me signed in</span>
           </label>
 
           <button

@@ -5,7 +5,6 @@ import {
   useEffect,
   useRef,
   useState,
-  type FormEvent,
   type ReactNode,
 } from "react";
 import { fetchFooter, FOOTER_POLL_MS } from "@/lib/footer";
@@ -64,10 +63,6 @@ export function Footer({ branchContact }: { branchContact?: BranchFooterContact 
   const [inView, setInView] = useState(false);
   const [data, setData] = useState<FooterContent>(seedFooter);
   const [logoFailed, setLogoFailed] = useState(false);
-  const [email, setEmail] = useState("");
-  const [feedback, setFeedback] = useState<"idle" | "success" | "error">(
-    "idle"
-  );
 
   useEffect(() => {
     let alive = true;
@@ -103,13 +98,6 @@ export function Footer({ branchContact }: { branchContact?: BranchFooterContact 
     io.observe(el);
     return () => io.disconnect();
   }, []);
-
-  const handleSubscribe = (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
-    setFeedback(valid ? "success" : "error");
-    if (valid) setEmail("");
-  };
 
   const baseSocials = data.socials.filter(
     (s) => s.enabled && s.href?.trim()
@@ -154,7 +142,7 @@ export function Footer({ branchContact }: { branchContact?: BranchFooterContact 
       />
 
       <div className="mx-auto max-w-[1440px] px-6 pt-20 pb-16 lg:px-10 lg:pt-28 lg:pb-20">
-        <div className="grid gap-12 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1.2fr_1.35fr] lg:gap-x-14">
+        <div className="grid gap-12 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1.4fr] lg:gap-x-14">
           {/* ---- Column 1: brand ---- */}
           <div
             className="footer-item"
@@ -294,53 +282,6 @@ export function Footer({ branchContact }: { branchContact?: BranchFooterContact 
                 </ul>
               </div>
             </div>
-          </FooterColumn>
-
-          {/* ---- Column 4: newsletter ---- */}
-          <FooterColumn title={data.newsletter.title} index={3}>
-            <p className="text-[0.92rem] font-light leading-[1.85] text-[var(--fg-soft)]">
-              {data.newsletter.description}
-            </p>
-
-            {data.newsletter.status === "active" ? (
-              <form onSubmit={handleSubscribe} noValidate className="mt-6">
-                <div className="flex items-center gap-2 rounded-full border border-[var(--footer-input-border)] bg-[var(--footer-input-bg)] p-1.5 pl-5 transition-colors duration-300 focus-within:border-[var(--accent)] focus-within:shadow-[0_0_0_4px_var(--accent-soft)]">
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder={data.newsletter.placeholder}
-                    aria-label={data.newsletter.placeholder}
-                    className="min-w-0 flex-1 bg-transparent text-[0.9rem] text-[var(--footer-input-fg)] placeholder:text-[var(--fg-muted)] focus:outline-none"
-                  />
-                  <button
-                    type="submit"
-                    className="btn btn-brand h-11 shrink-0 px-6"
-                  >
-                    {data.newsletter.button}
-                  </button>
-                </div>
-                <p
-                  className="mt-3 min-h-[1.1rem] text-[0.72rem] font-normal tracking-[0.02em]"
-                  aria-live="polite"
-                >
-                  {feedback === "success" && (
-                    <span className="text-[var(--accent)]">
-                      {data.newsletter.success}
-                    </span>
-                  )}
-                  {feedback === "error" && (
-                    <span className="text-[var(--brand-cta)]">
-                      {data.newsletter.error}
-                    </span>
-                  )}
-                </p>
-              </form>
-            ) : (
-              <p className="mt-6 text-[0.85rem] text-[var(--fg-muted)]">
-                {data.newsletter.status}
-              </p>
-            )}
           </FooterColumn>
         </div>
       </div>

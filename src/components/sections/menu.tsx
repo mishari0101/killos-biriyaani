@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { menu } from "@/lib/content/menu";
 import { isManagedImageUrl } from "@/lib/uploads/client";
+import { waHref } from "@/lib/contact";
 import { ArrowRightIcon, ChevronDownIcon, ImageIcon } from "@/components/ui/icons";
 
 export interface SectionMenuItem {
@@ -25,11 +26,22 @@ const MAX_STAGGER = 8;
 /* Initial batch size per breakpoint: mobile / tablet / desktop */
 const PAGE_SIZES = { mobile: 4, tablet: 6, desktop: 8 } as const;
 
-function DishCard({ item, index }: { item: SectionMenuItem; index: number }) {
+/** Pre-filled WhatsApp order message for a dish (null when no number is configured). */
+function orderHref(waPhone: string | undefined, itemName: string): string | undefined {
+  if (!waPhone?.trim()) return undefined;
+  return waHref(waPhone.trim(), `Hi Killo's Biriyani, I'd like to order ${itemName}.`);
+}
+
+function DishCard({ item, index, waPhone }: { item: SectionMenuItem; index: number; waPhone?: string }) {
   const delay = Math.min(index, MAX_STAGGER) * STAGGER_MS;
+  const href = orderHref(waPhone, item.name);
   return (
-    <article
-      className="menu-card-in group relative flex h-full flex-col overflow-hidden rounded-[16px] border border-[#C9A15C]/10 bg-[#231C17] shadow-[0_12px_32px_-20px_rgba(0,0,0,0.65)]"
+    <a
+      href={href}
+      target={href ? "_blank" : undefined}
+      rel={href ? "noopener noreferrer" : undefined}
+      aria-label={`Order ${item.name} on WhatsApp`}
+      className="menu-card-in group relative flex h-full cursor-pointer flex-col overflow-hidden rounded-[16px] border border-[#C9A15C]/10 bg-[#231C17] shadow-[0_12px_32px_-20px_rgba(0,0,0,0.65)] transition-all duration-300 ease-out hover:-translate-y-1 hover:border-[#C9A15C]/35 hover:shadow-[0_20px_44px_-20px_rgba(0,0,0,0.75)]"
       style={{ "--d": `${delay}ms` } as React.CSSProperties}
     >
       {/* ---- Full-bleed food image, 4:3, cropped uniformly ---- */}
@@ -72,23 +84,27 @@ function DishCard({ item, index }: { item: SectionMenuItem; index: number }) {
           <span className="whitespace-nowrap text-[18px] font-bold leading-none text-[#C9A15C]">
             {item.price}
           </span>
-          <button
-            type="button"
-            aria-label={`Order ${item.name}`}
-            className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full border border-[#C9A15C]/70 bg-transparent text-[#C9A15C] transition-colors duration-300 ease-out hover:border-[#C9A15C] hover:bg-[#C9A15C] hover:text-[#1A1410]"
+          <span
+            aria-hidden="true"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#C9A15C]/70 bg-transparent text-[#C9A15C] transition-colors duration-300 ease-out group-hover:border-[#C9A15C] group-hover:bg-[#C9A15C] group-hover:text-[#1A1410]"
           >
             <ArrowRightIcon size={16} />
-          </button>
+          </span>
         </div>
       </div>
-    </article>
+    </a>
   );
 }
 
-function MobileDishCard({ item, index }: { item: SectionMenuItem; index: number }) {
+function MobileDishCard({ item, index, waPhone }: { item: SectionMenuItem; index: number; waPhone?: string }) {
   const delay = Math.min(index, MAX_STAGGER) * STAGGER_MS;
+  const href = orderHref(waPhone, item.name);
   return (
-    <article
+    <a
+      href={href}
+      target={href ? "_blank" : undefined}
+      rel={href ? "noopener noreferrer" : undefined}
+      aria-label={`Order ${item.name} on WhatsApp`}
       className="menu-card-in relative flex touch-manipulation cursor-pointer items-stretch gap-3.5 rounded-[16px] border border-[#C9A15C]/10 bg-[#231C17] p-4 shadow-[0_10px_28px_-18px_rgba(0,0,0,0.7)] transition-transform duration-200 ease-out active:scale-[0.98]"
       style={{ "--d": `${delay}ms` } as React.CSSProperties}
     >
@@ -134,26 +150,26 @@ function MobileDishCard({ item, index }: { item: SectionMenuItem; index: number 
           <span className="whitespace-nowrap text-[18px] font-bold leading-none text-[#C9A15C]">
             {item.price}
           </span>
-          <button
-            type="button"
-            aria-label={`Order ${item.name}`}
-            onClick={(e) => e.stopPropagation()}
-            className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full border border-[#C9A15C]/70 bg-transparent text-[#C9A15C] transition-colors duration-300 ease-out active:border-[#C9A15C] active:bg-[#C9A15C] active:text-[#1A1410]"
+          <span
+            aria-hidden="true"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[#C9A15C]/70 bg-transparent text-[#C9A15C] transition-colors duration-300 ease-out group-active:border-[#C9A15C] group-active:bg-[#C9A15C] group-active:text-[#1A1410]"
           >
             <ArrowRightIcon size={16} />
-          </button>
+          </span>
         </div>
       </div>
-    </article>
+    </a>
   );
 }
 
 export function Menu({
   items,
   categories,
+  waPhone,
 }: {
   items: SectionMenuItem[];
   categories: SectionCategory[];
+  waPhone?: string;
 }) {
   const sectionRef = useRef<HTMLElement>(null);
   const headerRef = useRef<HTMLDivElement>(null);
@@ -345,7 +361,7 @@ export function Menu({
               className="-mx-1.5 flex flex-col gap-3 sm:hidden"
             >
               {paged.map((item, i) => (
-                <MobileDishCard key={item.id} item={item} index={i} />
+                <MobileDishCard key={item.id} item={item} index={i} waPhone={waPhone} />
               ))}
             </div>
 
@@ -356,7 +372,7 @@ export function Menu({
               className="hidden gap-5 sm:grid sm:grid-cols-2 lg:grid-cols-3"
             >
               {paged.map((item, i) => (
-                <DishCard key={item.id} item={item} index={i} />
+                <DishCard key={item.id} item={item} index={i} waPhone={waPhone} />
               ))}
             </div>
 
