@@ -619,3 +619,21 @@ export const UploadCloudIcon = (props: IconProps) => (
     <path d="m8 17 4-4 4 4" />
   </Base>
 );
+
+export const BellIcon = (props: IconProps) => (
+  <Base {...props}>
+    <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+    <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+  </Base>
+);
+
+export const ListIcon = (props: IconProps) => (
+  <Base {...props}>
+    <path d="M8 6h13" />
+    <path d="M8 12h13" />
+    <path d="M8 18h13" />
+    <path d="M3 6h.01" />
+    <path d="M3 12h.01" />
+    <path d="M3 18h.01" />
+  </Base>
+);

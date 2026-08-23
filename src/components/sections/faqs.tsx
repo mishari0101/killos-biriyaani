@@ -121,13 +121,13 @@ export function Faqs() {
           </p>
           <h2
             id="faq-heading"
-            className="faq-item mt-6 text-[clamp(2.4rem,5vw,3.6rem)] font-bold leading-[1.08] tracking-[0.01em] text-[var(--fg)]"
+            className="faq-item mt-6 text-[clamp(2.4rem,4.8vw,4.1rem)] font-bold uppercase leading-[1.02] tracking-[-0.01em] text-[var(--fg)]"
             style={
-              { fontFamily: "var(--font-serif)", "--d": "120ms" } as React.CSSProperties
+              { fontFamily: "var(--font-display)", "--d": "120ms" } as React.CSSProperties
             }
           >
             {faqs.titleA}
-            <em className="mt-1 block italic text-[var(--accent)]">
+            <em className="mt-1 block not-italic text-[var(--accent)]">
               {faqs.titleB}
             </em>
           </h2>

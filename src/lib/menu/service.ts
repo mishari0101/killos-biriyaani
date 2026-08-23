@@ -2,7 +2,7 @@ import "server-only";
 
 import { imageStorage } from "@/lib/uploads/storage";
 import { findAll, findById, createDoc, updateDoc, deleteDoc, nextId } from "@/lib/firebase/repo";
-import { isValidPrice, slugifyCategory, type MenuCategoryInput, type MenuItemInput } from "./validate";
+import { isValidPrice, normalizeMenuTags, slugifyCategory, type MenuCategoryInput, type MenuItemInput } from "./validate";
 import {
   type MenuCategoryData,
   type MenuCategoryRow,
@@ -33,6 +33,7 @@ export function rowToMenuItem(row: MenuItemRow): MenuItemData {
     imageUrl: row.imageUrl,
     available: row.available,
     featured: row.featured,
+    tags: Array.isArray(row.tags) ? row.tags : [],
     displayOrder: row.displayOrder,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
@@ -49,6 +50,7 @@ export function toMenuItemInput(raw: Record<string, unknown>): MenuItemInput {
     imageUrl: typeof raw.imageUrl === "string" ? raw.imageUrl : "",
     available: toBoolean(raw.available),
     featured: toBoolean(raw.featured),
+    tags: normalizeMenuTags(raw.tags),
     displayOrder: Math.trunc(toNumber(raw.displayOrder)),
   };
 }
@@ -129,6 +131,7 @@ export async function createMenuItem(data: MenuItemInput): Promise<MenuItemData>
     imageUrl: data.imageUrl.trim(),
     available: data.available,
     featured: data.featured,
+    tags: normalizeMenuTags(data.tags),
     displayOrder: data.displayOrder,
   });
   return rowToMenuItem(row);
@@ -161,6 +164,7 @@ export async function updateMenuItem(id: number, data: MenuItemInput): Promise<M
     imageUrl: data.imageUrl.trim(),
     available: data.available,
     featured: data.featured,
+    tags: normalizeMenuTags(data.tags),
     displayOrder: data.displayOrder,
   });
   if (!row) throw new MenuItemNotFoundError(id);

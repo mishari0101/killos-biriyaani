@@ -1,5 +1,4 @@
-import { getSession } from "@/lib/auth/session";
-import { createSession, deleteSession } from "@/lib/auth/session";
+import { createSession, deleteSession, getSession, isSecureRequest } from "@/lib/auth/session";
 import {
   getAdminAccount,
   updateAdminProfile,
@@ -123,7 +122,7 @@ export async function PUT(request: Request) {
 
   try {
     const user = await updateAdminProfile(name, email);
-    await createSession(toSessionPayload(user));
+    await createSession(toSessionPayload(user), { secure: isSecureRequest(request) });
     return Response.json(
       {
         ok: true,

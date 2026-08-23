@@ -3,6 +3,8 @@
 import { useEffect, useCallback, useState } from "react";
 import { AdminSidebarContent } from "@/components/admin/sidebar";
 import { LogoutButton } from "@/components/admin/logout-button";
+import { TopbarSearch } from "@/components/admin/topbar-search";
+import { NotificationBell } from "@/components/admin/notification-bell";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { MenuIcon, CloseIcon } from "@/components/ui/icons";
 import type { SessionPayload } from "@/lib/auth/jwt";
@@ -34,7 +36,7 @@ export function AdminShell({ user, children }: AdminShellProps) {
 
   return (
     <div className="admin-body flex min-h-screen">
-      <aside className="admin-sidebar fixed inset-y-0 left-0 z-40 hidden w-64 border-r lg:block">
+      <aside className="admin-sidebar fixed inset-y-0 left-0 z-40 hidden w-[220px] border-r lg:block">
         <AdminSidebarContent />
       </aside>
       {drawerOpen && (
@@ -59,7 +61,7 @@ export function AdminShell({ user, children }: AdminShellProps) {
         </div>
       )}
 
-      <div className="flex min-w-0 flex-1 flex-col lg:pl-64">
+      <div className="flex min-w-0 flex-1 flex-col lg:pl-[220px]">
         <header className="admin-topbar sticky top-0 z-30 border-b">
           <div className="flex h-16 items-center gap-3 px-4 sm:px-6">
             <button
@@ -71,15 +73,18 @@ export function AdminShell({ user, children }: AdminShellProps) {
               <MenuIcon size={19} />
             </button>
 
-            <div className="flex items-center gap-2 rounded-full border border-[var(--admin-border)] bg-[var(--admin-card)] px-3 py-1.5 text-[0.72rem] text-[var(--admin-fg-muted)]">
+            <div className="hidden items-center gap-2 rounded-full border border-[var(--admin-border)] bg-[var(--admin-card)] px-3 py-1.5 text-[0.72rem] text-[var(--admin-fg-muted)] xl:flex">
               <span className="relative flex h-2 w-2">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--accent)] opacity-60" />
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-[var(--accent)]" />
               </span>
-              <span className="hidden sm:inline">Live</span>
+              Live
             </div>
 
+            <TopbarSearch />
+
             <div className="ml-auto flex items-center gap-2">
+              <NotificationBell />
               <ThemeToggle />
               <LogoutButton compact />
 

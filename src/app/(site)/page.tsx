@@ -1,4 +1,5 @@
 import { Hero } from "@/components/sections/hero";
+import { TypeMarquee } from "@/components/sections/type-marquee";
 import { About } from "@/components/sections/about";
 import { WhyChoose } from "@/components/sections/why-choose";
 import { MenuData } from "@/components/sections/menu-data";
@@ -17,6 +18,7 @@ export default function Home() {
   return (
     <main>
       <Hero />
+      <TypeMarquee />
       <About />
       <WhyChoose />
       <MenuData />

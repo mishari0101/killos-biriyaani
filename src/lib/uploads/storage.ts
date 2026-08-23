@@ -3,6 +3,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { rm } from "node:fs/promises";
 import path from "node:path";
+import { v2 as cloudinary } from "cloudinary";
 
 export interface StoredImage {
   url: string;
@@ -12,7 +13,7 @@ export interface StoredImage {
 /** Base error for image storage failures so callers can surface the real cause. */
 export class ImageStorageError extends Error {}
 
-/** The image host is not configured (e.g. IMGBB_API_KEY missing). */
+/** The image host is not configured (e.g. CLOUDINARY_* missing). */
 export class ImageStorageConfigError extends ImageStorageError {}
 
 /** The image host rejected the upload or delete request. */
@@ -52,13 +53,16 @@ function toStorageError(error: unknown): ImageStorageError {
  * The rest of the app (upload route + services) only ever works with the
  * returned `url` strings, so the backend can be swapped without touching UI.
  *
- * New images are uploaded to ImgBB (https://imgbb.com) using the server-side
- * IMGBB_API_KEY. The returned `key` is ImgBB's per-image delete URL, which the
- * UI uses to remove uploads that were never saved to Firestore (DELETE
- * /api/uploads/menu?key=...). Images uploaded before this migration live on
- * the local filesystem under public/uploads/; they are still served by
- * src/app/uploads/[...path] and are cleaned up when their entity is deleted or
- * the image is replaced, so existing data keeps working unchanged.
+ * New images are uploaded to Cloudinary using the server-side
+ * CLOUDINARY_CLOUD_NAME / CLOUDINARY_API_KEY / CLOUDINARY_API_SECRET. The
+ * returned `key` is Cloudinary's `public_id`, which the UI uses to remove
+ * uploads that were never saved to Firestore (DELETE /api/uploads/menu?key=...)
+ * and which services recover from stored URLs via `urlToKey`. Images uploaded
+ * before the ImgBB migration live on the local filesystem under
+ * public/uploads/; they are still served by src/app/uploads/[...path] and are
+ * cleaned up when their entity is deleted or the image is replaced, so existing
+ * data keeps working unchanged. Images hosted on ImgBB (from the previous
+ * migration) keep serving as-is until they are eventually replaced.
  */
 export interface ImageStorage {
   save(folder: string, buffer: Buffer, extension: string): Promise<StoredImage>;
@@ -83,10 +87,97 @@ const FOLDER_RE = /^[a-zA-Z0-9_-]+$/;
 const LOCAL_KEY_RE = /^[a-zA-Z0-9_-]+\/[a-zA-Z0-9-_.]+$/;
 const LOCAL_URL_PREFIX = "/uploads/";
 const IMGBB_HOSTS = new Set(["i.ibb.co", "ibb.co", "imgbb.com"]);
+const CLOUDINARY_HOSTS = new Set(["res.cloudinary.com"]);
 
-const IMGBB_UPLOAD_ENDPOINT = "https://api.imgbb.com/1/upload";
+/**
+ * Cloudinary public_ids we generate carry a `cld-` prefix on the filename so a
+ * delete key is unambiguously a Cloudinary asset (never a local file key).
+ */
+const CLOUDINARY_KEY_PREFIX = "cld-";
+const CLOUDINARY_KEY_RE = new RegExp(
+  `^[a-zA-Z0-9_-]+\\/${CLOUDINARY_KEY_PREFIX}[a-zA-Z0-9_-]+$`
+);
+
 const IMGBB_DELETE_ENDPOINT = "https://ibb.co/json";
 const IMGBB_REQUEST_TIMEOUT_MS = 60_000;
+
+/** Read an env value the way the rest of the app does (trim + strip quotes). */
+function readEnv(name: string): string {
+  return (process.env[name] ?? "").trim().replace(/^["']|["']$/g, "");
+}
+
+/**
+ * Validate the Cloudinary credentials and (re)apply them to the SDK.
+ * Throws ImageStorageConfigError when any credential is missing.
+ */
+function cloudinaryConfig(): void {
+  const cloudName = readEnv("CLOUDINARY_CLOUD_NAME");
+  const apiKey = readEnv("CLOUDINARY_API_KEY");
+  const apiSecret = readEnv("CLOUDINARY_API_SECRET");
+  if (!cloudName || !apiKey || !apiSecret) {
+    throw new ImageStorageConfigError(
+      "Cloudinary is not configured on this server (CLOUDINARY_CLOUD_NAME, " +
+        "CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET are required)."
+    );
+  }
+  cloudinary.config({
+    cloud_name: cloudName,
+    api_key: apiKey,
+    api_secret: apiSecret,
+  });
+}
+
+/** Map a Cloudinary SDK failure into a typed storage error. */
+function toCloudinaryError(error: unknown): ImageStorageError {
+  const httpCode = (error as { http_code?: number })?.http_code;
+  if (typeof httpCode === "number" && httpCode >= 400) {
+    const message = (error as { message?: string })?.message;
+    return new ImageStorageHostError(
+      message && message.trim() ? message : `Cloudinary returned HTTP ${httpCode}.`
+    );
+  }
+  return toStorageError(error);
+}
+
+/** Upload a buffer to Cloudinary, returning the secure URL and public_id. */
+function uploadToCloudinary(
+  buffer: Buffer,
+  folder: string
+): Promise<{ url: string; key: string }> {
+  return new Promise((resolve, reject) => {
+    const publicId = `${CLOUDINARY_KEY_PREFIX}${Date.now()}-${randomUUID().slice(0, 8)}`;
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        folder,
+        public_id: publicId,
+        resource_type: "image",
+      },
+      (error, result) => {
+        if (error) {
+          reject(toCloudinaryError(error));
+          return;
+        }
+        if (!result?.secure_url || !result?.public_id) {
+          reject(new ImageStorageHostError("Cloudinary did not return an image URL."));
+          return;
+        }
+        resolve({ url: result.secure_url, key: result.public_id });
+      }
+    );
+    stream.on("error", (error) => reject(toCloudinaryError(error)));
+    stream.end(buffer);
+  });
+}
+
+/** Best-effort removal of an image on Cloudinary (never fails the caller). */
+async function destroyOnCloudinary(publicId: string): Promise<void> {
+  try {
+    cloudinaryConfig();
+    await cloudinary.uploader.destroy(publicId, { resource_type: "image" });
+  } catch (error) {
+    console.error("Cloudinary destroy failed:", error);
+  }
+}
 
 /** Resolve a local storage key to an absolute path inside UPLOADS_ROOT, or null. */
 function resolveWithinRoot(key: string): string | null {
@@ -126,7 +217,7 @@ function parseImgbbDeleteUrl(value: string): { id: string; hash: string } | null
 async function deleteFromImgbb(deleteUrl: string): Promise<void> {
   const parsed = parseImgbbDeleteUrl(deleteUrl);
   if (!parsed) return;
-  const apiKey = process.env.IMGBB_API_KEY;
+  const apiKey = readEnv("IMGBB_API_KEY");
   if (!apiKey) return;
 
   const body = new URLSearchParams();
@@ -156,7 +247,54 @@ async function deleteFromImgbb(deleteUrl: string): Promise<void> {
   }
 }
 
-function imgbbImageStorage(): ImageStorage {
+/**
+ * Extract a Cloudinary `public_id` from a delivery URL such as
+ * `https://res.cloudinary.com/<cloud>/image/upload/v<version>/<public_id>.<ext>`
+ * or `https://<cloud>.res.cloudinary.com/image/upload/v<version>/<public_id>.<ext>`.
+ * Returns null for any other URL.
+ */
+function cloudinaryPublicIdFromUrl(value: string): string | null {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return null;
+  }
+  const hostname = url.hostname;
+  const isStandard = hostname === "res.cloudinary.com";
+  const isCname = hostname.endsWith(".res.cloudinary.com");
+  if (!isStandard && !isCname) return null;
+
+  const parts = url.pathname.split("/").filter(Boolean);
+  if (isStandard) parts.shift(); // drop the cloud name segment
+  if (parts[0] !== "image" || parts[1] !== "upload") return null;
+  const asset = parts.slice(2);
+  if (asset.length === 0) return null;
+
+  // Drop an optional version segment (`v<digits>`), taking the one closest to
+  // the filename so transformed URLs (extra segments before the version) still
+  // resolve to the right public_id.
+  let versionIndex = -1;
+  for (let i = asset.length - 1; i >= 0; i -= 1) {
+    if (/^v\d+$/.test(asset[i])) {
+      versionIndex = i;
+      break;
+    }
+  }
+  const afterVersion = versionIndex >= 0 ? asset.slice(versionIndex + 1) : asset;
+  if (afterVersion.length === 0) return null;
+
+  const filename = afterVersion[afterVersion.length - 1].replace(
+    /\.(jpg|jpeg|png|webp)$/i,
+    ""
+  );
+  const publicId = [...afterVersion.slice(0, -1), filename].join("/");
+  if (!publicId) return null;
+  if (!/^[a-zA-Z0-9_-]+(\/[a-zA-Z0-9_-]+)*$/.test(publicId)) return null;
+  return publicId;
+}
+
+function cloudinaryImageStorage(): ImageStorage {
   return {
     async save(folder, buffer, extension) {
       if (!FOLDER_RE.test(folder)) {
@@ -165,49 +303,23 @@ function imgbbImageStorage(): ImageStorage {
       if (!MIME_BY_EXT[extension]) {
         throw new Error(`Unsupported image extension: ${extension}`);
       }
-      const apiKey = (process.env.IMGBB_API_KEY ?? "")
-        .trim()
-        .replace(/^["']|["']$/g, "");
-      if (!apiKey) {
-        throw new ImageStorageConfigError(
-          "ImgBB is not configured on this server (IMGBB_API_KEY is missing)."
-        );
-      }
-
-      const form = new FormData();
-      form.set("key", apiKey);
-      form.set("image", buffer.toString("base64"));
-      form.set("name", `${folder}-${Date.now()}-${randomUUID().slice(0, 8)}`);
-
-      let res: Response;
       try {
-        res = await fetch(IMGBB_UPLOAD_ENDPOINT, {
-          method: "POST",
-          body: form,
-          signal: AbortSignal.timeout(IMGBB_REQUEST_TIMEOUT_MS),
-        });
+        cloudinaryConfig();
       } catch (error) {
-        throw toStorageError(error);
+        if (error instanceof ImageStorageError) throw error;
+        throw new ImageStorageConfigError("Cloudinary is not configured on this server.");
       }
-
-      const payload = (await res.json().catch(() => null)) as {
-        data?: { url?: string; delete_url?: string };
-        error?: { message?: string };
-        success?: boolean;
-      } | null;
-
-      if (!res.ok || !payload?.success || !payload.data?.url || !payload.data.delete_url) {
-        const reason = payload?.error?.message ?? `ImgBB returned HTTP ${res.status}.`;
-        throw new ImageStorageHostError(reason);
-      }
-
-      return { url: payload.data.url, key: payload.data.delete_url };
+      return uploadToCloudinary(buffer, folder);
     },
 
     async delete(key) {
       if (!key) return;
       if (parseImgbbDeleteUrl(key)) {
         await deleteFromImgbb(key);
+        return;
+      }
+      if (CLOUDINARY_KEY_RE.test(key)) {
+        await destroyOnCloudinary(key);
         return;
       }
       if (!LOCAL_KEY_RE.test(key)) return;
@@ -219,7 +331,12 @@ function imgbbImageStorage(): ImageStorage {
     isManagedUrl(url) {
       if (url.startsWith(LOCAL_URL_PREFIX)) return true;
       try {
-        return IMGBB_HOSTS.has(new URL(url).hostname);
+        const hostname = new URL(url).hostname;
+        return (
+          CLOUDINARY_HOSTS.has(hostname) ||
+          hostname.endsWith(".res.cloudinary.com") ||
+          IMGBB_HOSTS.has(hostname)
+        );
       } catch {
         return false;
       }
@@ -231,9 +348,9 @@ function imgbbImageStorage(): ImageStorage {
         if (!key || !LOCAL_KEY_RE.test(key)) return null;
         return key;
       }
-      return null;
+      return cloudinaryPublicIdFromUrl(url);
     },
   };
 }
 
-export const imageStorage: ImageStorage = imgbbImageStorage();
+export const imageStorage: ImageStorage = cloudinaryImageStorage();

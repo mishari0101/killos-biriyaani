@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { attractions } from "@/lib/content/attractions";
+import { isManagedImageUrl } from "@/lib/uploads/client";
 import {
   ArrowRightIcon,
   ImageIcon,
@@ -74,7 +75,7 @@ function AttractionCard({ item, sizes }: { item: SectionAttractionItem; sizes: s
           src={item.image}
           alt={item.name}
           fill
-          unoptimized={item.image.startsWith("https://i.ibb.co/")}
+          unoptimized={isManagedImageUrl(item.image)}
           sizes={sizes}
           style={{ objectPosition: item.imagePosition || "center center" }}
           className="object-cover transition-transform duration-[1100ms] ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-[1.06]"
@@ -175,13 +176,13 @@ export function Attractions({ items }: { items: SectionAttractionItem[] }) {
           </p>
           <h2
             id="attractions-heading"
-            className="attraction-item mt-6 text-[clamp(2.4rem,5vw,3.6rem)] font-bold leading-[1.08] tracking-[0.01em] text-[var(--fg)]"
+            className="attraction-item mt-6 text-[clamp(2.4rem,4.8vw,4.1rem)] font-bold uppercase leading-[1.02] tracking-[-0.01em] text-[var(--fg)]"
             style={
-              { fontFamily: "var(--font-serif)", "--d": "120ms" } as React.CSSProperties
+              { fontFamily: "var(--font-display)", "--d": "120ms" } as React.CSSProperties
             }
           >
             {attractions.titleA}
-            <em className="mt-1 block italic text-[var(--accent)]">
+            <em className="mt-1 block not-italic text-[var(--accent)]">
               {attractions.titleB}
             </em>
           </h2>

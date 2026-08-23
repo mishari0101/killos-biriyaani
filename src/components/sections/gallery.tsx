@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { gallery } from "@/lib/content/gallery";
+import { isManagedImageUrl } from "@/lib/uploads/client";
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
@@ -45,7 +46,7 @@ function Tile({ item, onOpen }: { item: SectionGalleryItem; onOpen: () => void }
             src={item.image}
             alt={item.caption}
             fill
-            unoptimized={item.image.startsWith("https://i.ibb.co/")}
+            unoptimized={isManagedImageUrl(item.image)}
             sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
             className="object-cover transition-transform duration-[900ms] ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-[1.06]"
           />
@@ -164,7 +165,7 @@ function Lightbox({
                 alt={item.caption}
                 width={1600}
                 height={1067}
-                unoptimized={item.image.startsWith("https://i.ibb.co/")}
+                unoptimized={isManagedImageUrl(item.image)}
                 sizes="(min-width: 1024px) 60rem, 100vw"
                 className="h-auto max-h-[68vh] w-auto max-w-full object-contain"
               />
@@ -290,13 +291,13 @@ export function Gallery({ items }: GalleryProps) {
           </p>
           <h2
             id="gallery-heading"
-            className="gallery-item mt-6 text-[clamp(2.4rem,5vw,3.6rem)] font-bold leading-[1.08] tracking-[0.01em] text-[var(--fg)]"
+            className="gallery-item mt-6 text-[clamp(2.4rem,4.8vw,4.1rem)] font-bold uppercase leading-[1.02] tracking-[-0.01em] text-[var(--fg)]"
             style={
-              { fontFamily: "var(--font-serif)", "--d": "120ms" } as React.CSSProperties
+              { fontFamily: "var(--font-display)", "--d": "120ms" } as React.CSSProperties
             }
           >
             {gallery.titleA}
-            <em className="mt-1 block italic text-[var(--accent)]">
+            <em className="mt-1 block not-italic text-[var(--accent)]">
               {gallery.titleB}
             </em>
           </h2>

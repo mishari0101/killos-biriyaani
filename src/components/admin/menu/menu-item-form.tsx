@@ -21,6 +21,8 @@ interface MenuItemFormProps {
   onCategoryCreated?: () => void;
 }
 
+const TAG_PRESETS = ["Spicy", "Vegetarian", "Vegan", "Gluten-Free", "Chef's Special", "New"] as const;
+
 const emptyForm: MenuItemInput = {
   category: "",
   name: "",
@@ -29,6 +31,7 @@ const emptyForm: MenuItemInput = {
   imageUrl: "",
   available: true,
   featured: false,
+  tags: [],
   displayOrder: 0,
 };
 
@@ -42,6 +45,7 @@ function toForm(item: MenuItemData | null): MenuItemInput {
     imageUrl: item.imageUrl,
     available: item.available,
     featured: item.featured,
+    tags: item.tags ?? [],
     displayOrder: item.displayOrder,
   };
 }
@@ -54,6 +58,7 @@ export function MenuItemForm({ mode, item, categories, onClose, onSave, onCatego
   const [showErrors, setShowErrors] = useState(false);
   const [categoryOptions, setCategoryOptions] = useState<string[]>(() => [...categories].sort());
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
+  const [customTag, setCustomTag] = useState("");
   const pendingKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -222,6 +227,77 @@ export function MenuItemForm({ mode, item, categories, onClose, onSave, onCatego
                 rows={3}
                 error={showErrors ? errors.description : undefined}
               />
+            </div>
+
+            <div className="mt-5" id="menu-tags-section">
+              <Field
+                label="Tags"
+                hint="Optional chips like Spicy or Vegetarian — up to 6, shown on the item."
+                error={showErrors ? errors.tags : undefined}
+              >
+                <div className="flex flex-wrap gap-2">
+                  {Array.from(
+                    new Set([...TAG_PRESETS, ...form.tags])
+                  ).map((tag) => {
+                    const active = form.tags.includes(tag);
+                    const atLimit = !active && form.tags.length >= 6;
+                    return (
+                      <button
+                        key={tag}
+                        type="button"
+                        aria-pressed={active}
+                        disabled={atLimit}
+                        onClick={() =>
+                          patch(
+                            "tags",
+                            active
+                              ? form.tags.filter((t) => t !== tag)
+                              : [...form.tags, tag]
+                          )
+                        }
+                        className={`cursor-pointer rounded-full border px-3 py-1.5 text-[0.75rem] font-medium transition-all ${
+                          active
+                            ? "border-[var(--accent)] bg-[var(--admin-nav-active-bg)] text-[var(--accent-strong)]"
+                            : atLimit
+                              ? "cursor-not-allowed border-[var(--admin-border)] text-[var(--admin-fg-muted)] opacity-40"
+                              : "border-[var(--admin-border-strong)] text-[var(--admin-fg-soft)] hover:border-[var(--accent)]/60 hover:text-[var(--admin-fg)]"
+                        }`}
+                      >
+                        {tag}
+                      </button>
+                    );
+                  })}
+                </div>
+                <form
+                  className="mt-2.5 flex max-w-xs items-center gap-2"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const value = customTag.trim();
+                    if (!value) return;
+                    if (form.tags.length < 6 && !form.tags.some((t) => t.toLowerCase() === value.toLowerCase())) {
+                      patch("tags", [...form.tags, value]);
+                    }
+                    setCustomTag("");
+                  }}
+                >
+                  <input
+                    type="text"
+                    value={customTag}
+                    onChange={(e) => setCustomTag(e.target.value)}
+                    maxLength={24}
+                    placeholder="Custom tag…"
+                    aria-label="Add a custom tag"
+                    className="admin-input !py-2 text-[0.8rem]"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!customTag.trim() || form.tags.length >= 6}
+                    className="admin-btn admin-btn-ghost shrink-0 px-3 py-2 text-[0.78rem] disabled:opacity-40"
+                  >
+                    Add
+                  </button>
+                </form>
+              </Field>
             </div>
 
             <div className="mt-5">

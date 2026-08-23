@@ -16,6 +16,7 @@
 
   --font-serif: var(--font-playfair);
   --font-sans: var(--font-poppins);
+  --font-display: var(--font-oswald);
 
   --shadow-lift: 0 30px 60px -20px rgba(0, 0, 0, 0.55);
   --shadow-accent: 0 18px 50px -18px rgba(201, 162, 39, 0.45);
@@ -565,6 +566,262 @@ html.theme-switching *::after {
   filter: blur(0);
 }
 
+/* ============================================================
+   Editorial campaign hero — fixed cream/charcoal/gold palette
+   (#F1EDE3 / #1A1410 / #C9A15C), independent of the theme toggle.
+   ============================================================ */
+.hero-editorial {
+  /* Strict three-tone palette: cream base, charcoal ink, antique gold.
+     Soft variants are opacities of the same two hues — no other colors. */
+  --he-bg: #f1ede3;
+  --he-bg-soft: #eae5d7;
+  --he-frame-bg: #e9e3d3;
+  /* Deep warm charcoal ink */
+  --he-ink: #1a1410;
+  --he-ink-soft: rgba(26, 20, 16, 0.6);
+  --he-ink-muted: rgba(26, 20, 16, 0.4);
+  /* Muted antique gold */
+  --he-gold: #c9a15c;
+  --he-gold-strong: #c9a15c;
+  --he-gold-line: rgba(201, 161, 92, 0.45);
+  --he-line: rgba(26, 20, 16, 0.14);
+
+  background-color: var(--he-bg);
+  color: var(--he-ink);
+}
+
+/* ---- Entrance reveals (transform/opacity only) ---- */
+.he-mask {
+  display: block;
+  overflow: hidden;
+  padding-bottom: 0.06em;
+  margin-bottom: -0.06em;
+}
+
+/* Editorial display type — ultra-bold condensed caps stacked in three
+   massive lines, held to the left column with the right side left empty. */
+.he-headline {
+  font-family: var(--font-display);
+  font-weight: 700;
+  line-height: 0.9;
+  letter-spacing: -0.02em;
+  font-size: clamp(2.6rem, 10.5vw, 8.75rem);
+}
+
+@media (min-width: 1024px) {
+  .he-headline {
+    line-height: 0.88;
+    font-size: clamp(4.5rem, 9.4vw, 8.75rem);
+  }
+}
+
+/* Inline per-word mask so each word can rise out of its own clip
+   while the headline still flows and wraps naturally */
+.he-wmask {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: bottom;
+  padding-bottom: 0.08em;
+  margin-bottom: -0.08em;
+}
+
+.he-word {
+  display: block;
+  /* starts fully below the padded mask box so nothing peeks pre-reveal */
+  transform: translateY(130%);
+  transition: transform 1s var(--ease-lux) var(--d, 0ms);
+  will-change: transform;
+  /* soft dark halo so white/gold letterforms read over the raw photo */
+  text-shadow:
+    0 1px 3px rgba(26, 20, 16, 0.4),
+    0 8px 30px rgba(26, 20, 16, 0.45);
+}
+
+.hero-ready .he-word {
+  transform: translateY(0);
+}
+
+.he-fade {
+  opacity: 0;
+  transform: translateY(26px);
+  transition:
+    opacity 0.9s var(--ease-lux) var(--d, 0ms),
+    transform 0.9s var(--ease-lux) var(--d, 0ms);
+  will-change: opacity, transform;
+}
+
+.hero-ready .he-fade {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Full-bleed hero background — opacity-only fade (no translate,
+   so the cover layer never exposes its edges while entering) */
+.he-bg-fade {
+  opacity: 0;
+  transition: opacity 1.2s var(--ease-lux) var(--d, 0ms);
+}
+
+.hero-ready .he-bg-fade {
+  opacity: 1;
+}
+
+/* Text-only readability shade for the small tagline (no background
+   overlay anywhere) */
+.he-tshadow {
+  text-shadow:
+    0 1px 2px rgba(26, 20, 16, 0.5),
+    0 4px 18px rgba(26, 20, 16, 0.45);
+}
+
+/* ---- Editorial type marquee (Hero → About bridge) ----
+   Pure transform animation, GPU-composited; two identical halves
+   loop at -50% for a seamless roll. */
+.marquee {
+  background-color: #f1ede3;
+}
+
+.marquee-track {
+  --marquee-duration: 64s;
+  animation: marquee-scroll var(--marquee-duration) linear infinite;
+  will-change: transform;
+}
+
+.he-marquee-word {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: clamp(1.5rem, 3.4vw, 2.9rem);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  line-height: 1.25;
+  white-space: nowrap;
+  color: #c9a15c;
+}
+
+.he-marquee-dot {
+  margin-inline: clamp(1.1rem, 2.6vw, 2.4rem);
+  font-size: clamp(0.8rem, 1.6vw, 1.3rem);
+  line-height: 1;
+  transform: translateY(-0.15em);
+  color: rgba(201, 161, 92, 0.55);
+}
+
+@keyframes marquee-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* Slower + smaller on mobile */
+@media (max-width: 767px) {
+  .marquee-track {
+    --marquee-duration: 84s;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track {
+    animation: none;
+  }
+}
+
+/* ---- Editorial buttons ---- */
+.he-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.85rem;
+  padding: 1.15rem 2.6rem;
+  font-family: var(--font-sans);
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  border-radius: 12px;
+  transition:
+    background-color 0.45s var(--ease-lux),
+    color 0.45s var(--ease-lux),
+    border-color 0.45s var(--ease-lux),
+    letter-spacing 0.45s var(--ease-lux),
+    transform 0.45s var(--ease-lux);
+}
+
+.he-btn:active {
+  transform: scale(0.98);
+}
+
+/* Book a Table — deep charcoal slab, refined ivory label,
+   hairline gold edge as the accent */
+.he-btn-primary {
+  background-color: var(--he-ink);
+  color: var(--he-bg);
+  border: 1px solid rgba(201, 161, 92, 0.55);
+}
+
+.he-btn-primary:hover {
+  background-color: #241c12;
+  border-color: var(--he-gold);
+  letter-spacing: 0.34em;
+}
+
+.he-btn-primary svg {
+  transition:
+    transform 0.45s var(--ease-lux),
+    color 0.45s var(--ease-lux);
+}
+
+.he-btn-primary:hover svg {
+  color: var(--he-gold);
+  transform: translateX(5px);
+}
+
+/* View Menu — solid muted luxury gold plate, white label,
+   deep-gold hairline frame */
+.he-btn-gold {
+  background-color: var(--he-gold);
+  color: #ffffff;
+  border: 1px solid rgba(154, 119, 61, 0.55);
+}
+
+.he-btn-gold:hover {
+  background-color: #b18a4a;
+  border-color: rgba(154, 119, 61, 0.75);
+  color: #ffffff;
+  letter-spacing: 0.34em;
+}
+
+.he-link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding-bottom: 4px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--he-ink);
+}
+
+.he-link::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: var(--he-gold);
+  transform-origin: left;
+  transition: transform 0.45s var(--ease-lux);
+}
+
+.he-link:hover::after {
+  transform: scaleX(0.55);
+}
+
 /* Section scroll-reveal — elements start hidden, reveal when .wcu-in is set */
 .wcu-item {
   opacity: 0;
@@ -606,6 +863,30 @@ html.theme-switching *::after {
   opacity: 1;
   transform: translateX(0);
   filter: blur(0);
+}
+
+/* About quote — word-by-word editorial reveal (transform/opacity only) */
+.quote-word {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(16px);
+  transition:
+    opacity 0.8s var(--ease-lux) var(--wd, 0ms),
+    transform 0.8s var(--ease-lux) var(--wd, 0ms);
+  will-change: opacity, transform;
+}
+
+.about-in .quote-word {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quote-word {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
 }
 
 /* Menu scroll-reveal — fade up */
@@ -1942,6 +2223,14 @@ html.theme-switching *::after {
     filter: none;
   }
 
+  .he-word,
+  .he-fade,
+  .he-bg-fade {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+
   .wcu-item {
     opacity: 1;
     transform: none;
@@ -2102,10 +2391,11 @@ html.theme-switching *::after {
 
 .admin-nav-link {
   color: var(--admin-nav-fg);
-  border-radius: 0.625rem;
+  border-radius: 9999px;
   transition:
     color 0.25s var(--ease-lux),
-    background-color 0.25s var(--ease-lux);
+    background-color 0.25s var(--ease-lux),
+    box-shadow 0.25s var(--ease-lux);
 }
 
 .admin-nav-link:hover {
@@ -2116,6 +2406,7 @@ html.theme-switching *::after {
 .admin-nav-link.is-active {
   color: var(--admin-nav-active-fg);
   background: var(--admin-nav-active-bg);
+  box-shadow: inset 0 0 0 1px rgba(201, 162, 39, 0.22);
 }
 
 .admin-nav-link.is-active .admin-nav-dot {

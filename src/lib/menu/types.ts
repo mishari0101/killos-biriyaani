@@ -28,6 +28,7 @@ export interface MenuItemData {
   imageUrl: string;
   available: boolean;
   featured: boolean;
+  tags: string[];
   displayOrder: number;
   createdAt: string;
   updatedAt: string;
@@ -43,6 +44,7 @@ export interface MenuItemRow {
   imageUrl: string;
   available: boolean;
   featured: boolean;
+  tags?: string[];
   displayOrder: number;
   createdAt: Date;
   updatedAt: Date;

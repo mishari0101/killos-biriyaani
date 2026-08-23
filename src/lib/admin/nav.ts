@@ -2,11 +2,8 @@ import {
   CalendarDaysIcon,
   GridIcon,
   MailIcon,
-  MessageSquareIcon,
   SettingsIcon,
   SparklesIcon,
-  StarIcon,
-  StoreIcon,
   UtensilsIcon,
   UserIcon,
 } from "@/components/ui/icons";
@@ -49,7 +46,7 @@ export const adminNavSections: AdminNavSection[] = [
     title: "Content",
     items: [
       {
-        label: "Menu",
+        label: "Menu Items",
         href: "/admin/menu",
         icon: UtensilsIcon,
         description: "Dishes, categories & prices",
@@ -60,27 +57,6 @@ export const adminNavSections: AdminNavSection[] = [
         href: "/admin/gallery",
         icon: SparklesIcon,
         description: "Photos & highlights",
-        status: "active",
-      },
-      {
-        label: "Attractions",
-        href: "/admin/attractions",
-        icon: StarIcon,
-        description: "Why guests choose us",
-        status: "active",
-      },
-      {
-        label: "Reviews",
-        href: "/admin/reviews",
-        icon: MessageSquareIcon,
-        description: "Guest feedback & moderation",
-        status: "active",
-      },
-      {
-        label: "Branches",
-        href: "/admin/branches",
-        icon: StoreIcon,
-        description: "Locations & opening hours",
         status: "active",
       },
       {

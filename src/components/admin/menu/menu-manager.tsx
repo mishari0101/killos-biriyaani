@@ -1,12 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { Toast, type ToastState } from "@/components/admin/settings/toast";
 import { MenuToolbar } from "./menu-toolbar";
 import { MenuTable } from "./menu-table";
+import { MenuGrid } from "./menu-grid";
 import { MenuItemForm } from "./menu-item-form";
 import { MenuDeleteModal } from "./menu-delete-modal";
 import { EmptyState } from "./menu-empty-state";
+import { PlusIcon, UtensilsIcon } from "@/components/ui/icons";
 import type {
   MenuItemData,
   MenuListResult,
@@ -15,15 +17,56 @@ import type {
 import type { MenuItemInput } from "@/lib/menu/validate";
 
 const PAGE_SIZE = 10;
+const VIEW_STORAGE_KEY = "kilo-admin-menu-view";
 
 interface MenuManagerProps {
   initial: MenuListResult;
+  initialSearch?: string;
 }
 
 type FormState =
   | { mode: "create" }
   | { mode: "edit"; item: MenuItemData }
   | null;
+
+type ViewMode = "list" | "grid";
+
+export type { ViewMode };
+
+/** Tiny external store so the persisted view preference survives navigation.
+ *  Standalone functions (not object methods) so they never lose their
+ *  `this` binding when passed to useSyncExternalStore. */
+const viewListeners = new Set<() => void>();
+
+function subscribeViewPreference(callback: () => void): () => void {
+  viewListeners.add(callback);
+  window.addEventListener("storage", callback);
+  return () => {
+    viewListeners.delete(callback);
+    window.removeEventListener("storage", callback);
+  };
+}
+
+function getViewPreferenceSnapshot(): ViewMode {
+  try {
+    return window.localStorage.getItem(VIEW_STORAGE_KEY) === "grid" ? "grid" : "list";
+  } catch {
+    return "list";
+  }
+}
+
+function getViewPreferenceServerSnapshot(): ViewMode {
+  return "list";
+}
+
+function setViewPreference(next: ViewMode): void {
+  try {
+    window.localStorage.setItem(VIEW_STORAGE_KEY, next);
+  } catch {
+    /* storage unavailable — in-memory only */
+  }
+  for (const listener of viewListeners) listener();
+}
 
 interface MenuItemErrorsResult {
   errors?: Record<string, string>;
@@ -68,21 +111,30 @@ function compareForSort(a: MenuItemData, b: MenuItemData, sort: MenuSort): numbe
   }
 }
 
-export function MenuManager({ initial }: MenuManagerProps) {
-  const [searchInput, setSearchInput] = useState("");
-  const [search, setSearch] = useState("");
+export function MenuManager({ initial, initialSearch = "" }: MenuManagerProps) {
+  const [searchInput, setSearchInput] = useState(initialSearch);
+  const [search, setSearch] = useState(initialSearch);
   const [category, setCategory] = useState("all");
   const [availability, setAvailability] = useState<"all" | "available" | "unavailable">("all");
   const [featured, setFeatured] = useState<"all" | "featured" | "regular">("all");
   const [sort, setSort] = useState<MenuSort>("order");
   const [page, setPage] = useState(1);
   const [data, setData] = useState<MenuListResult>(initial);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(Boolean(initialSearch));
   const [refreshKey, setRefreshKey] = useState(0);
   const [toast, setToast] = useState<ToastState | null>(null);
   const [formState, setFormState] = useState<FormState>(null);
   const [deleteTarget, setDeleteTarget] = useState<MenuItemData | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const view = useSyncExternalStore(
+    subscribeViewPreference,
+    getViewPreferenceSnapshot,
+    getViewPreferenceServerSnapshot
+  );
+
+  const changeView = useCallback((next: ViewMode) => {
+    setViewPreference(next);
+  }, []);
 
   useEffect(() => {
     if (searchInput === search) return;
@@ -239,6 +291,41 @@ export function MenuManager({ initial }: MenuManagerProps) {
     setToast({ type: "success", message: "Menu item deleted." });
   }, [deleteTarget, deleting, refresh]);
 
+  const handleDuplicate = useCallback(
+    async (item: MenuItemData) => {
+      try {
+        const res = await fetch("/api/menu", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            category: item.category,
+            name: `${item.name} (Copy)`.slice(0, 160),
+            description: item.description,
+            price: item.price,
+            imageUrl: "",
+            available: false,
+            featured: false,
+            tags: item.tags ?? [],
+            displayOrder: item.displayOrder,
+          }),
+        });
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setToast({ type: "error", message: payload?.error ?? "Could not duplicate the item." });
+          return;
+        }
+        refreshInBackground();
+        setToast({
+          type: "success",
+          message: "Copy created — it starts hidden with no photo. Edit it to finish.",
+        });
+      } catch {
+        setToast({ type: "error", message: "Could not reach the server." });
+      }
+    },
+    [refreshInBackground]
+  );
+
   const categories = Array.from(
     new Set([...data.categories, ...(formState?.mode === "edit" ? [formState.item.category] : [])])
   ).sort((a, b) => a.localeCompare(b));
@@ -247,6 +334,37 @@ export function MenuManager({ initial }: MenuManagerProps) {
 
   return (
     <div className="space-y-6">
+      <header>
+        <p className="text-[0.72rem] uppercase tracking-[0.18em] text-[var(--admin-fg-muted)]">
+          Admin Studio
+        </p>
+        <div className="mt-2 flex flex-wrap items-end justify-between gap-4">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="font-serif text-2xl font-semibold text-[var(--admin-fg)] sm:text-3xl">
+                Menu Items
+              </h1>
+              <span className="admin-chip hidden sm:inline-flex">
+                <UtensilsIcon size={13} />
+                Live to the site
+              </span>
+            </div>
+            <p className="mt-2 max-w-2xl text-[0.9rem] text-[var(--admin-fg-soft)]">
+              Build and price every dish the public menu shows — categories, tags,
+              availability, featured items and display order.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setFormState({ mode: "create" })}
+            className="admin-btn admin-btn-primary shrink-0 font-semibold"
+          >
+            <PlusIcon size={16} />
+            Add New Item
+          </button>
+        </div>
+      </header>
+
       <MenuToolbar
         search={searchInput}
         onSearch={setSearchInput}
@@ -259,9 +377,10 @@ export function MenuManager({ initial }: MenuManagerProps) {
         sort={sort}
         onSort={(v) => changeFilter("sort", v)}
         categories={data.categories}
-        onAdd={() => setFormState({ mode: "create" })}
         total={data.total}
         loading={loading}
+        view={view}
+        onView={changeView}
       />
 
       {data.items.length === 0 && !loading ? (
@@ -278,12 +397,21 @@ export function MenuManager({ initial }: MenuManagerProps) {
             setPage(1);
           }}
         />
+      ) : view === "grid" ? (
+        <MenuGrid
+          items={data.items}
+          loading={loading}
+          onEdit={(item) => setFormState({ mode: "edit", item })}
+          onDelete={setDeleteTarget}
+          onToggle={handleToggle}
+        />
       ) : (
         <MenuTable
           items={data.items}
           loading={loading}
           onEdit={(item) => setFormState({ mode: "edit", item })}
           onDelete={setDeleteTarget}
+          onDuplicate={handleDuplicate}
           onToggle={handleToggle}
         />
       )}

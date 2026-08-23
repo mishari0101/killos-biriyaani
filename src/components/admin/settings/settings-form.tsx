@@ -4,9 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import {
   BuildingIcon,
   PhoneIcon,
-  ClockIcon,
   ShareIcon,
-  MapPinIcon,
   SaveIcon,
   RefreshIcon,
 } from "@/components/ui/icons";
@@ -15,7 +13,6 @@ import { Toggle } from "./toggle";
 import { SectionCard } from "./section-card";
 import { Toast, type ToastState } from "./toast";
 import type { SettingsData, SocialKey } from "@/lib/settings/types";
-import { DAY_LABELS, DAYS } from "@/lib/settings/types";
 import { validateSettings, type SettingsErrors, type SocialMediaErrorKey } from "@/lib/settings/validate";
 
 interface SettingsFormProps {
@@ -52,19 +49,6 @@ export function SettingsForm({ initialSettings }: SettingsFormProps) {
       if (!(key in e)) return e;
       const next = { ...e };
       delete next[key];
-      return next;
-    });
-  }, []);
-
-  const patchDay = useCallback((day: (typeof DAYS)[number], partial: Partial<SettingsData["businessHours"][number]>) => {
-    setForm((f) => ({
-      ...f,
-      businessHours: f.businessHours.map((h) => (h.day === day ? { ...h, ...partial } : h)),
-    }));
-    setErrors((e) => {
-      const next = { ...e };
-      delete next[`businessHours_${day}_open` as keyof SettingsData];
-      delete next[`businessHours_${day}_close` as keyof SettingsData];
       return next;
     });
   }, []);
@@ -183,89 +167,8 @@ export function SettingsForm({ initialSettings }: SettingsFormProps) {
           </div>
         </SectionCard>
 
-        {/* 3 — Business Hours */}
-        <SectionCard index="03" title="Business Hours" description="Your opening and closing times." icon={ClockIcon}>
-          <div className="overflow-hidden rounded-xl border border-[var(--admin-border)]">
-            <div className="hidden grid-cols-[1.4fr_1fr_1fr_0.9fr] gap-3 border-b border-[var(--admin-border)] bg-[var(--admin-field-bg)] px-4 py-2.5 sm:grid">
-              <span className="admin-table-th">Day</span>
-              <span className="admin-table-th">Open</span>
-              <span className="admin-table-th">Close</span>
-              <span className="admin-table-th text-right">Closed</span>
-            </div>
-            {DAYS.map((day) => {
-              const entry = form.businessHours.find((h) => h.day === day)!;
-              return (
-                <div
-                  key={day}
-                  className="grid grid-cols-2 gap-3 border-b border-[var(--admin-border)] px-4 py-3 last:border-b-0 sm:grid-cols-[1.4fr_1fr_1fr_0.9fr] sm:items-center"
-                >
-                  <span className="col-span-2 text-[0.82rem] font-medium text-[var(--admin-fg)] sm:col-span-1">
-                    {DAY_LABELS[day]}
-                  </span>
-                  <label className="sr-only" htmlFor={`hours-${day}-open`}>
-                    {DAY_LABELS[day]} open time
-                  </label>
-                  <input
-                    id={`hours-${day}-open`}
-                    type="time"
-                    value={entry.open}
-                    disabled={entry.closed}
-                    onChange={(e) => patchDay(day, { open: e.target.value })}
-                    className={`admin-input px-3 py-2 text-[0.8rem] ${
-                      entry.closed ? "opacity-40" : ""
-                    } ${showErrors && errors[`businessHours_${day}_open` as keyof SettingsData] ? "admin-input-error" : ""}`}
-                  />
-                  <label className="sr-only" htmlFor={`hours-${day}-close`}>
-                    {DAY_LABELS[day]} close time
-                  </label>
-                  <input
-                    id={`hours-${day}-close`}
-                    type="time"
-                    value={entry.close}
-                    disabled={entry.closed}
-                    onChange={(e) => patchDay(day, { close: e.target.value })}
-                    className={`admin-input px-3 py-2 text-[0.8rem] ${
-                      entry.closed ? "opacity-40" : ""
-                    } ${showErrors && errors[`businessHours_${day}_close` as keyof SettingsData] ? "admin-input-error" : ""}`}
-                  />
-                  <div className="flex justify-end">
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={entry.closed}
-                      aria-label={`${DAY_LABELS[day]} closed`}
-                      onClick={() => patchDay(day, { closed: !entry.closed })}
-                      className="admin-toggle"
-                      data-on={entry.closed}
-                    >
-                      <span className="admin-toggle-thumb" />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          <p className="admin-field-hint mt-3">
-            Turn <strong>Closed</strong> on for days the restaurant does not open.
-          </p>
-        </SectionCard>
-
-        {/* 4 — Location */}
-        <SectionCard index="04" title="Location" description="Where the restaurant is on the map." icon={MapPinIcon}>
-          <TextInput
-            id="mapsEmbedUrl"
-            label="Google Maps Link"
-            type="url"
-            value={form.mapsEmbedUrl}
-            onChange={(v) => patch("mapsEmbedUrl", v)}
-            placeholder="https://maps.google.com/…"
-            error={showErrors ? errors.mapsEmbedUrl : undefined}
-            hint="A Google Maps link to the restaurant."
-          />
-        </SectionCard>
-
-        {/* 5 — Social Media */}
-        <SectionCard index="05" title="Social Media" description="Links guests can follow." icon={ShareIcon}>
+        {/* 3 — Social Media */}
+        <SectionCard index="03" title="Social Media" description="Links guests can follow." icon={ShareIcon}>
           <div className="space-y-4">
             {MANAGED_SOCIALS.map((key) => {
               const social = form.socialMedia[key];

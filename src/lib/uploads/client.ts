@@ -4,6 +4,29 @@ export interface UploadResult {
 }
 
 /**
+ * Whether an image URL comes from one of our managed image hosts (Cloudinary
+ * today, ImgBB for legacy records). These hosts already deliver optimized
+ * images, so <Image> should bypass the Next.js optimizer for them. Local
+ * `/uploads/...` URLs are intentionally excluded (the legacy route keeps them
+ * handled as before).
+ */
+export function isManagedImageUrl(url: string): boolean {
+  if (!url) return false;
+  try {
+    const hostname = new URL(url).hostname;
+    return (
+      hostname === "res.cloudinary.com" ||
+      hostname.endsWith(".res.cloudinary.com") ||
+      hostname === "i.ibb.co" ||
+      hostname === "ibb.co" ||
+      hostname === "imgbb.com"
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Upload an image file to the server and return the resulting URL.
  *
  * The UI only consumes the returned URL, so the storage backend

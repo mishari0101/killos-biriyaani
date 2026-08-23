@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { menu } from "@/lib/content/menu";
+import { isManagedImageUrl } from "@/lib/uploads/client";
 import { ArrowRightIcon, ChevronDownIcon, ImageIcon } from "@/components/ui/icons";
 
 export interface SectionMenuItem {
@@ -21,59 +22,125 @@ export interface SectionCategory {
 
 const STAGGER_MS = 55;
 const MAX_STAGGER = 8;
-const VISIBLE_COUNT = 6;
+/* Initial batch size per breakpoint: mobile / tablet / desktop */
+const PAGE_SIZES = { mobile: 4, tablet: 6, desktop: 8 } as const;
 
 function DishCard({ item, index }: { item: SectionMenuItem; index: number }) {
   const delay = Math.min(index, MAX_STAGGER) * STAGGER_MS;
   return (
     <article
-      className="menu-card-in group relative flex flex-col rounded-[28px] border border-[var(--menu-card-border)] bg-[var(--menu-card-bg)] shadow-[var(--menu-card-shadow)] transition-all duration-300 ease-in-out hover:-translate-y-2.5 hover:border-[var(--menu-card-border-hover)] hover:shadow-[var(--menu-card-shadow-hover)]"
+      className="menu-card-in group relative flex h-full flex-col overflow-hidden rounded-[16px] border border-[#C9A15C]/10 bg-[#231C17] shadow-[0_12px_32px_-20px_rgba(0,0,0,0.65)]"
       style={{ "--d": `${delay}ms` } as React.CSSProperties}
     >
-      {/* ---- Floating food image (placeholder until real photos are added) ---- */}
-      <div className="relative pt-[50%]">
-        <div className="absolute left-1/2 top-0 aspect-square w-[64%] -translate-x-1/2 -translate-y-[21%] overflow-hidden rounded-[24px] bg-[#191919] shadow-[0_18px_34px_-16px_var(--shadow-color)] ring-1 ring-[var(--menu-card-border)]">
-          {item.image ? (
-            <Image
-              src={item.image}
-              alt={item.name}
-              fill
-              unoptimized={item.image.startsWith("https://i.ibb.co/")}
-              sizes="(min-width: 1024px) 20vw, (min-width: 640px) 30vw, 42vw"
-              className="object-contain transition-transform duration-300 ease-in-out group-hover:scale-105"
-            />
-          ) : (
-            <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#232323] via-[#1c1c1c] to-[#171717]">
-              <span className="flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-white/25">
-                <ImageIcon size={20} />
-              </span>
-            </div>
-          )}
-        </div>
+      {/* ---- Full-bleed food image, 4:3, cropped uniformly ---- */}
+      <div className="relative aspect-[4/3] w-full shrink-0 overflow-hidden">
+        {item.image ? (
+          <Image
+            src={item.image}
+            alt={item.name}
+            fill
+            unoptimized={isManagedImageUrl(item.image)}
+            sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+            className="object-cover"
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#2A211A] via-[#231C17] to-[#1A1410]">
+            <span className="flex h-12 w-12 items-center justify-center rounded-full border border-[#C9A15C]/25 bg-[#C9A15C]/[0.06] text-[#C9A15C]/50">
+              <ImageIcon size={20} />
+            </span>
+          </div>
+        )}
       </div>
 
       {/* ---- Body ---- */}
-      <div className="relative z-10 flex flex-1 flex-col px-3 pb-5 pt-1 text-center sm:px-6 sm:pb-6 lg:px-7 lg:pb-7">
+      <div className="flex flex-1 flex-col p-5">
         <h3
-          className="text-[1.3rem] font-bold leading-snug text-[var(--fg)] sm:text-[1.35rem]"
+          className="truncate text-[20px] font-bold leading-[1.35] text-white"
           style={{ fontFamily: "var(--font-serif)" }}
+          title={item.name}
         >
           {item.name}
         </h3>
-        <p className="mx-auto mt-2.5 max-w-[26ch] text-[0.88rem] font-medium leading-relaxed text-[var(--fg-soft)]">
-          {item.description}
+        <p
+          className="mt-1.5 h-[21px] truncate text-[14px] leading-[21px] text-white/55"
+          title={item.description || undefined}
+        >
+          {item.description || "\u00A0"}
         </p>
 
-        <div className="mt-auto flex items-center justify-between gap-2 pt-7 sm:gap-3">
-          <span className="whitespace-nowrap text-[1rem] font-bold leading-none text-[var(--brand-cta)] sm:text-[1.15rem] lg:text-[1.35rem]">
+        <div className="mt-auto flex items-center justify-between gap-3 pt-5">
+          <span className="whitespace-nowrap text-[18px] font-bold leading-none text-[#C9A15C]">
             {item.price}
           </span>
           <button
             type="button"
             aria-label={`Order ${item.name}`}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border border-[var(--brand-cta)] text-[var(--brand-cta)] transition-all duration-300 ease-in-out group-hover:bg-[var(--brand-cta)] group-hover:text-white group-hover:shadow-[0_10px_24px_-10px_rgba(192,57,43,0.6)] hover:bg-[var(--brand-cta-strong)] hover:text-white sm:h-10 sm:w-10 sm:rounded-[12px] lg:h-11 lg:w-11"
+            className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full border border-[#C9A15C]/70 bg-transparent text-[#C9A15C] transition-colors duration-300 ease-out hover:border-[#C9A15C] hover:bg-[#C9A15C] hover:text-[#1A1410]"
           >
-            <ArrowRightIcon size={18} />
+            <ArrowRightIcon size={16} />
+          </button>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function MobileDishCard({ item, index }: { item: SectionMenuItem; index: number }) {
+  const delay = Math.min(index, MAX_STAGGER) * STAGGER_MS;
+  return (
+    <article
+      className="menu-card-in relative flex touch-manipulation cursor-pointer items-stretch gap-3.5 rounded-[16px] border border-[#C9A15C]/10 bg-[#231C17] p-4 shadow-[0_10px_28px_-18px_rgba(0,0,0,0.7)] transition-transform duration-200 ease-out active:scale-[0.98]"
+      style={{ "--d": `${delay}ms` } as React.CSSProperties}
+    >
+      {/* ---- Square food image, 40% width ---- */}
+      <div className="relative aspect-square w-[40%] shrink-0 overflow-hidden rounded-[12px]">
+        {item.image ? (
+          <Image
+            src={item.image}
+            alt={item.name}
+            fill
+            unoptimized={isManagedImageUrl(item.image)}
+            sizes="(max-width: 639px) 42vw"
+            className="object-cover"
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#2A211A] via-[#231C17] to-[#1A1410]">
+            <span className="flex h-10 w-10 items-center justify-center rounded-full border border-[#C9A15C]/25 bg-[#C9A15C]/[0.06] text-[#C9A15C]/50">
+              <ImageIcon size={18} />
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* ---- Content right, name/desc/price on a uniform rhythm ---- */}
+      <div className="flex min-w-0 flex-1 flex-col justify-between py-0.5">
+        <div className="min-w-0">
+          <h3
+            className="truncate text-[17px] font-bold leading-[1.3] text-white"
+            style={{ fontFamily: "var(--font-serif)" }}
+            title={item.name}
+          >
+            {item.name}
+          </h3>
+          <p
+            className="mt-1 truncate text-[13px] leading-[18px] text-white/55"
+            title={item.description || undefined}
+          >
+            {item.description || "\u00A0"}
+          </p>
+        </div>
+
+        <div className="flex items-center justify-between gap-2">
+          <span className="whitespace-nowrap text-[18px] font-bold leading-none text-[#C9A15C]">
+            {item.price}
+          </span>
+          <button
+            type="button"
+            aria-label={`Order ${item.name}`}
+            onClick={(e) => e.stopPropagation()}
+            className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full border border-[#C9A15C]/70 bg-transparent text-[#C9A15C] transition-colors duration-300 ease-out active:border-[#C9A15C] active:bg-[#C9A15C] active:text-[#1A1410]"
+          >
+            <ArrowRightIcon size={16} />
           </button>
         </div>
       </div>
@@ -92,7 +159,20 @@ export function Menu({
   const headerRef = useRef<HTMLDivElement>(null);
   const [inView, setInView] = useState(false);
   const [active, setActive] = useState<string>("all");
-  const [expanded, setExpanded] = useState(false);
+  const initialPage =
+    typeof window === "undefined"
+      ? PAGE_SIZES.mobile
+      : window.innerWidth >= 1024
+        ? PAGE_SIZES.desktop
+        : window.innerWidth >= 640
+          ? PAGE_SIZES.tablet
+          : PAGE_SIZES.mobile;
+  const [pageSize, setPageSize] = useState<number>(initialPage);
+  const [shown, setShown] = useState<number>(initialPage);
+  const [loading, setLoading] = useState(false);
+  const [barStuck, setBarStuck] = useState(false);
+  const filterSentinelRef = useRef<HTMLDivElement>(null);
+  const loadTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     const el = sectionRef.current;
@@ -110,6 +190,36 @@ export function Menu({
     return () => io.disconnect();
   }, []);
 
+  useEffect(() => {
+    const sentinel = filterSentinelRef.current;
+    if (!sentinel) return;
+    const io = new IntersectionObserver(
+      ([entry]) => setBarStuck(!entry.isIntersecting),
+      // Viewport top boundary sits just below the fixed navbar (16px pad + 66px bar)
+      { rootMargin: "-88px 0px 0px 0px", threshold: 0 }
+    );
+    io.observe(sentinel);
+    return () => io.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const onResize = () => {
+      const w = window.innerWidth;
+      setPageSize(
+        w >= 1024 ? PAGE_SIZES.desktop : w >= 640 ? PAGE_SIZES.tablet : PAGE_SIZES.mobile
+      );
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (loadTimerRef.current != null) window.clearTimeout(loadTimerRef.current);
+    },
+    []
+  );
+
   const filtered = useMemo(
     () =>
       active === "all"
@@ -118,28 +228,36 @@ export function Menu({
     [active, items]
   );
 
-  const visibleItems = expanded ? filtered : filtered.slice(0, VISIBLE_COUNT);
-  const hiddenItems = filtered.slice(VISIBLE_COUNT);
-  const hasMore = filtered.length > VISIBLE_COUNT;
+  const paged = useMemo(() => filtered.slice(0, shown), [filtered, shown]);
 
   const handleCategory = (id: string) => {
+    if (loadTimerRef.current != null) {
+      window.clearTimeout(loadTimerRef.current);
+      loadTimerRef.current = null;
+    }
+    setLoading(false);
     setActive(id);
-    setExpanded(false);
+    setShown(pageSize);
   };
 
-  const toggleMore = () => {
-    if (expanded) {
-      setExpanded(false);
-      const header = headerRef.current;
-      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      if (header && header.getBoundingClientRect().top < 0) {
-        header.scrollIntoView({
-          behavior: reduce ? "auto" : "smooth",
-          block: "start",
-        });
-      }
-    } else {
-      setExpanded(true);
+  const handleViewMore = () => {
+    if (loading || shown >= filtered.length) return;
+    setLoading(true);
+    loadTimerRef.current = window.setTimeout(() => {
+      setShown((c) => Math.min(c + pageSize, filtered.length));
+      setLoading(false);
+    }, 420);
+  };
+
+  const handleShowLess = () => {
+    setShown(pageSize);
+    const header = headerRef.current;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (header && header.getBoundingClientRect().top < 0) {
+      header.scrollIntoView({
+        behavior: reduce ? "auto" : "smooth",
+        block: "start",
+      });
     }
   };
 
@@ -147,7 +265,7 @@ export function Menu({
     <section
       id="menu"
       ref={sectionRef}
-      className={`relative scroll-mt-24 bg-[var(--menu-bg)] py-24 lg:py-36 ${
+      className={`relative scroll-mt-24 bg-[#1A1410] py-24 lg:py-36 ${
         inView ? "menu-in" : ""
       }`}
       aria-labelledby="menu-heading"
@@ -156,132 +274,149 @@ export function Menu({
         {/* ---- Header ---- */}
         <div ref={headerRef} className="text-center">
           <p
-            className="menu-item text-[0.7rem] font-light uppercase tracking-[0.42em] text-[var(--accent)]"
+            className="menu-item text-[0.7rem] font-light uppercase tracking-[0.42em] text-[#C9A15C]"
             style={{ "--d": "0ms" } as React.CSSProperties}
           >
             {menu.eyebrow}
           </p>
           <h2
             id="menu-heading"
-            className="menu-item mt-6 text-[clamp(2.4rem,5vw,3.6rem)] font-bold leading-[1.08] tracking-[0.01em] text-[var(--fg)]"
-            style={{ fontFamily: "var(--font-serif)", "--d": "120ms" } as React.CSSProperties}
+            className="menu-item mt-6 text-[clamp(2.4rem,4.8vw,4.1rem)] font-bold uppercase leading-[1.02] tracking-[-0.01em] text-white"
+            style={{ fontFamily: "var(--font-display)", "--d": "120ms" } as React.CSSProperties}
           >
             {menu.titleA}
-            <em className="mt-1 block italic text-[var(--accent)]">
+            <em className="mt-1 block not-italic text-[#C9A15C]">
               {menu.titleB}
             </em>
           </h2>
           <p
-            className="menu-item mx-auto mt-6 max-w-[52ch] text-[1rem] font-normal leading-[1.8] text-[var(--fg-soft)]"
+            className="menu-item mx-auto mt-6 max-w-[52ch] text-[1rem] font-normal leading-[1.8] text-white/60"
             style={{ "--d": "240ms" } as React.CSSProperties}
           >
             {menu.description}
           </p>
         </div>
 
-        {/* ---- Category filter ---- */}
+        {/* ---- Category filter (sticky below navbar on mobile) ----
+            Direct child of the tall container so the sticky bar has
+            travel room all the way down to the View More toggle. */}
         <div
-          className="menu-item mt-12 flex gap-2.5 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:flex-wrap sm:justify-center sm:overflow-visible sm:pb-0"
+          className={`menu-item sticky top-[88px] z-30 -mx-6 mt-12 bg-[#1A1410]/95 px-6 py-2.5 backdrop-blur-md transition-shadow duration-300 sm:static sm:mx-0 sm:bg-transparent sm:px-0 sm:py-0 sm:backdrop-blur-none ${
+            barStuck
+              ? "shadow-[0_14px_30px_-14px_rgba(0,0,0,0.85)]"
+              : "shadow-none"
+          }`}
           style={{ "--d": "360ms" } as React.CSSProperties}
         >
-          {[{ id: "all", label: "All" }, ...categories].map((cat) => {
-            const isActive = cat.id === active;
-            return (
-              <button
-                key={cat.id}
-                type="button"
-                onClick={() => handleCategory(cat.id)}
-                aria-pressed={isActive}
-                className={`h-11 shrink-0 rounded-full border px-6 text-[0.72rem] font-medium uppercase tracking-[0.16em] transition-all duration-300 ease-out ${
-                  isActive
-                    ? "border-transparent bg-[var(--brand-cta)] text-white shadow-[0_14px_30px_-12px_rgba(192,57,43,0.6)]"
-                    : "border-[var(--menu-pill-border)] bg-[var(--menu-pill-bg)] text-[var(--fg-soft)] hover:border-[var(--menu-pill-hover-border)] hover:text-[var(--fg)]"
-                }`}
-              >
-                {cat.label}
-              </button>
-            );
-          })}
+          <div
+            ref={filterSentinelRef}
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-x-0 -top-4 h-4"
+          />
+          <div className="flex gap-2.5 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:flex-wrap sm:justify-center sm:overflow-visible sm:pb-0">
+            {[{ id: "all", label: "All" }, ...categories].map((cat) => {
+              const isActive = cat.id === active;
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => handleCategory(cat.id)}
+                  aria-pressed={isActive}
+                  className={`h-11 shrink-0 cursor-pointer rounded-full border px-6 text-[0.72rem] font-medium uppercase tracking-[0.16em] transition-all duration-300 ease-out ${
+                    isActive
+                      ? "border-[#C9A15C] bg-[#C9A15C] text-[#1A1410]"
+                      : "border-[#C9A15C]/45 bg-transparent text-[#C9A15C] hover:border-[#C9A15C] hover:bg-[#C9A15C]/10"
+                  }`}
+                >
+                  {cat.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        {/* ---- Menu grid ---- */}
+        {/* ---- Menu cards ---- */}
         {inView && (
-          <div className="mt-16 lg:mt-24">
+          <div className="mt-8 sm:mt-16 lg:mt-24">
+            {/* ---- Mobile: stacked horizontal cards, 12px gap, 18px side margins ---- */}
+            <div
+              id="menu-grid-mobile"
+              key={`m-${active}`}
+              className="-mx-1.5 flex flex-col gap-3 sm:hidden"
+            >
+              {paged.map((item, i) => (
+                <MobileDishCard key={item.id} item={item} index={i} />
+              ))}
+            </div>
+
+            {/* ---- Tablet/desktop grid ---- */}
             <div
               id="menu-grid"
-              key={active}
-              className="grid grid-cols-2 gap-x-3 gap-y-20 sm:gap-x-6 lg:grid-cols-3 lg:gap-x-7"
+              key={`d-${active}`}
+              className="hidden gap-5 sm:grid sm:grid-cols-2 lg:grid-cols-3"
             >
-              {visibleItems.map((item, i) => (
+              {paged.map((item, i) => (
                 <DishCard key={item.id} item={item} index={i} />
               ))}
             </div>
 
             {filtered.length === 0 && (
-              <div className="rounded-[24px] border border-dashed border-[var(--menu-pill-border)] bg-[var(--menu-pill-bg)] px-6 py-16 text-center">
+              <div className="rounded-[16px] border border-dashed border-[#C9A15C]/25 bg-white/[0.02] px-6 py-16 text-center">
                 <p
-                  className="text-[1.05rem] font-semibold text-[var(--fg)]"
+                  className="text-[1.05rem] font-semibold text-white"
                   style={{ fontFamily: "var(--font-serif)" }}
                 >
                   No dishes here yet
                 </p>
-                <p className="mx-auto mt-2 max-w-[38ch] text-[0.88rem] leading-relaxed text-[var(--fg-soft)]">
+                <p className="mx-auto mt-2 max-w-[38ch] text-[0.88rem] leading-relaxed text-white/55">
                   We are still cooking up this category — check back soon or explore
                   everything we have under All.
                 </p>
               </div>
             )}
 
-            {/* ---- Collapsible region for the remaining dishes ---- */}
-            {hasMore && (
-              <div
-                className="grid"
-                style={{
-                  gridTemplateRows: expanded ? "1fr" : "0fr",
-                  transition:
-                    "grid-template-rows 0.65s cubic-bezier(0.22, 1, 0.36, 1)",
-                }}
-              >
-                <div className="min-h-0 overflow-hidden">
-                  <div className="grid grid-cols-2 gap-x-3 gap-y-20 pt-20 sm:gap-x-6 lg:grid-cols-3 lg:gap-x-7">
-                    {hiddenItems.map((item, i) => (
-                      <div
-                        key={item.id}
-                        className={`menu-expand-card ${
-                          expanded ? "is-expanded" : ""
-                        }`}
-                        style={{ "--i": i } as React.CSSProperties}
-                      >
-                        <DishCard item={item} index={i + VISIBLE_COUNT} />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* ---- View More / View Less toggle ---- */}
-            {hasMore && (
-              <div className="mt-14 flex justify-center">
+            {/* ---- Pagination: View More / Show Less ---- */}
+            {filtered.length > pageSize && (
+              <div className="-mx-1.5 mt-10 flex justify-center sm:mx-0">
                 <button
                   type="button"
-                  onClick={toggleMore}
-                  aria-expanded={expanded}
-                  aria-controls="menu-grid"
-                  className="group flex h-14 w-full items-center justify-center gap-3 rounded-full bg-[var(--brand-cta)] text-white shadow-[0_18px_50px_-18px_rgba(192,57,43,0.55)] transition-all duration-300 ease-in-out hover:-translate-y-1 hover:bg-[var(--brand-cta-strong)] hover:shadow-[0_26px_60px_-18px_rgba(192,57,43,0.65)] active:scale-[0.97] sm:w-auto sm:px-12"
+                  onClick={shown < filtered.length ? handleViewMore : handleShowLess}
+                  aria-busy={loading}
+                  aria-live="polite"
+                  disabled={loading}
+                  className="group flex h-14 w-full cursor-pointer items-center justify-center gap-3 rounded-full border border-[#C9A15C] bg-[#C9A15C] text-[#1A1410] shadow-[0_16px_40px_-16px_rgba(201,161,92,0.45)] transition-all duration-300 ease-in-out hover:-translate-y-0.5 hover:brightness-105 active:scale-[0.98] disabled:cursor-wait disabled:opacity-85 sm:w-auto sm:px-12"
                 >
-                  <span className="text-[0.78rem] font-medium uppercase tracking-[0.18em]">
-                    {expanded ? "View Less" : "View More"}
-                  </span>
-                  <span className="inline-flex transition-transform duration-300 ease-in-out group-hover:-rotate-12">
-                    <span
-                      className={`inline-flex transition-transform duration-300 ease-in-out ${
-                        expanded ? "rotate-180" : ""
-                      }`}
-                    >
-                      <ChevronDownIcon size={16} />
-                    </span>
-                  </span>
+                  {loading ? (
+                    <>
+                      <span
+                        aria-hidden="true"
+                        className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
+                      />
+                      <span className="text-[0.78rem] font-semibold uppercase tracking-[0.18em]">
+                        Loading…
+                      </span>
+                    </>
+                  ) : shown < filtered.length ? (
+                    <>
+                      <span className="text-[0.78rem] font-semibold uppercase tracking-[0.18em]">
+                        View More
+                      </span>
+                      <ChevronDownIcon
+                        size={16}
+                        className="transition-transform duration-300 ease-out group-hover:translate-y-0.5"
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-[0.78rem] font-semibold uppercase tracking-[0.18em]">
+                        Show Less
+                      </span>
+                      <ChevronDownIcon
+                        size={16}
+                        className="rotate-180 transition-transform duration-300 ease-out group-hover:-translate-y-0.5"
+                      />
+                    </>
+                  )}
                 </button>
               </div>
             )}

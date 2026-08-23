@@ -25,14 +25,13 @@ import {
   toReservationPayload,
   validateContactFields,
   validateReservationFields,
-  waHref,
   type EnquiryFieldKey,
   type EnquiryFormValues,
   type ReservationFieldKey,
   type ReservationFormValues,
 } from "@/lib/contact";
-import { telHref } from "@/lib/branches";
-import type { BranchContactInfo } from "@/lib/branches/types";
+
+
 import {
   ArrowRightIcon,
   CalendarIcon,
@@ -45,7 +44,6 @@ import {
   SparklesIcon,
   UserIcon,
   UsersIcon,
-  WhatsAppIcon,
 } from "@/components/ui/icons";
 
 const GUEST_OPTIONS = Array.from({ length: 20 }, (_, i) => i + 1);
@@ -784,14 +782,12 @@ function OccasionField({
 /* --------------------------- Success card --------------------------- */
 
 function SuccessCard({
-  info,
   title,
   numberLabel,
   message,
   number,
   onReset,
 }: {
-  info: BranchContactInfo;
   title: string;
   numberLabel: string;
   message: string;
@@ -827,22 +823,6 @@ function SuccessCard({
         {message}
       </p>
       <div className="mt-9 grid w-full max-w-sm gap-3">
-        <a
-          href={telHref(info.phones[0])}
-          className="btn btn-brand btn-lg w-full"
-        >
-          <PhoneIcon size={15} />
-          Call Now
-        </a>
-        <a
-          href={waHref(info.whatsapp || info.phones[0], info.whatsappMessage)}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="btn btn-wa btn-lg w-full"
-        >
-          <WhatsAppIcon size={15} />
-          WhatsApp
-        </a>
         <a href="#home" onClick={onReset} className="btn btn-outline btn-lg w-full">
           Back to Home
         </a>
@@ -1035,7 +1015,7 @@ function EnquiryForm({
         ref={submitBtnRef}
         type="submit"
         disabled={status === "submitting"}
-        className="mt-9 hidden w-full items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-r from-red-500 to-orange-400 px-6 py-4 text-sm font-bold uppercase tracking-[0.14em] text-white shadow-lg shadow-[rgba(255,112,67,0.35)] transition-all duration-200 hover:-translate-y-0.5 hover:brightness-110 hover:shadow-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--contact-card-bg)] active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-75 lg:inline-flex"
+        className="mt-9 inline-flex w-full items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-r from-red-500 to-orange-400 px-6 py-4 text-sm font-bold uppercase tracking-[0.14em] text-white shadow-lg shadow-[rgba(255,112,67,0.35)] transition-all duration-200 hover:-translate-y-0.5 hover:brightness-110 hover:shadow-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--contact-card-bg)] active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-75"
       >
         {status === "submitting" ? (
           <span className="flex items-center gap-3">
@@ -1055,14 +1035,13 @@ function EnquiryForm({
       <p className="mt-5 text-center text-[0.7rem] font-normal tracking-[0.02em] text-[var(--fg-muted)]">
         {enquiryForm.footnote}
       </p>
-      <div className="h-28 lg:hidden" aria-hidden="true" />
     </form>
   );
 }
 
 /* ------------------------------- Section ------------------------------- */
 
-export function Contact({ info }: { info: BranchContactInfo }) {
+export function Contact() {
   const sectionRef = useRef<HTMLElement>(null);
   const formWrapRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -1106,10 +1085,6 @@ export function Contact({ info }: { info: BranchContactInfo }) {
     mq.addEventListener("change", update);
     return () => mq.removeEventListener("change", update);
   }, []);
-
-  const barHidden =
-    (mode === "reservation" && status === "success") ||
-    (mode === "message" && enqStatus === "success");
 
   const setField = (key: ReservationFieldKey, value: string) => {
     const next = { ...values, [key]: value };
@@ -1245,13 +1220,13 @@ export function Contact({ info }: { info: BranchContactInfo }) {
           </p>
           <h2
             id="contact-heading"
-            className="contact-item mt-6 text-[clamp(2.4rem,5vw,3.6rem)] font-bold leading-[1.08] tracking-[0.01em] text-[var(--fg)]"
+            className="contact-item mt-6 text-[clamp(2.4rem,4.8vw,4.1rem)] font-bold uppercase leading-[1.02] tracking-[-0.01em] text-[var(--fg)]"
             style={
-              { fontFamily: "var(--font-serif)", "--d": "120ms" } as React.CSSProperties
+              { fontFamily: "var(--font-display)", "--d": "120ms" } as React.CSSProperties
             }
           >
             {contact.titleA}
-            <em className="mt-1 block italic text-[var(--accent)]">
+            <em className="mt-1 block not-italic text-[var(--accent)]">
               {contact.titleB}
             </em>
           </h2>
@@ -1264,29 +1239,6 @@ export function Contact({ info }: { info: BranchContactInfo }) {
         </div>
 
         <div className="mt-14 lg:mt-16">
-          {/* ---- Quick contact strip ---- */}
-          <div
-            className="contact-item mx-auto mb-8 flex w-full max-w-[800px] flex-col gap-3 sm:flex-row"
-            style={{ "--d": "320ms" } as React.CSSProperties}
-          >
-            <a
-              href={telHref(info.phones[0])}
-              className="btn btn-brand btn-lg flex-1"
-            >
-              <PhoneIcon size={15} />
-              Call Now
-            </a>
-            <a
-              href={waHref(info.whatsapp || info.phones[0], info.whatsappMessage)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn btn-wa btn-lg flex-1"
-            >
-              <WhatsAppIcon size={15} />
-              WhatsApp
-            </a>
-          </div>
-
           {/* ---- Reservation / enquiry form ---- */}
           <div
             id="reservation"
@@ -1296,7 +1248,6 @@ export function Contact({ info }: { info: BranchContactInfo }) {
           >
             {mode === "message" && enqStatus === "success" ? (
               <SuccessCard
-                info={info}
                 title={enquirySuccess.title}
                 numberLabel={enquirySuccess.numberLabel}
                 message={enquirySuccess.message}
@@ -1305,7 +1256,6 @@ export function Contact({ info }: { info: BranchContactInfo }) {
               />
             ) : status === "success" ? (
               <SuccessCard
-                info={info}
                 title={success.title}
                 numberLabel={success.numberLabel}
                 message={success.message}
@@ -1491,11 +1441,23 @@ export function Contact({ info }: { info: BranchContactInfo }) {
                         </div>
                       )}
 
+                      {isMobile && step === 2 ? (
+                        <button
+                          type="button"
+                          onClick={() => goToStep(1)}
+                          className="btn btn-outline btn-lg w-full"
+                        >
+                          Back
+                        </button>
+                      ) : null}
+
                       <button
                         ref={submitBtnRef}
                         type="submit"
                         disabled={status === "submitting"}
-                        className="mt-9 hidden w-full items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-r from-red-500 to-orange-400 px-6 py-4 text-sm font-bold uppercase tracking-[0.14em] text-white shadow-lg shadow-[rgba(255,112,67,0.35)] transition-all duration-200 hover:-translate-y-0.5 hover:brightness-110 hover:shadow-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--contact-card-bg)] active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-75 lg:inline-flex"
+                        className={`mt-9 inline-flex w-full items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-r from-red-500 to-orange-400 px-6 py-4 text-sm font-bold uppercase tracking-[0.14em] text-white shadow-lg shadow-[rgba(255,112,67,0.35)] transition-all duration-200 hover:-translate-y-0.5 hover:brightness-110 hover:shadow-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--contact-card-bg)] active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-75 ${
+                          isMobile && step === 2 ? "!mt-4" : ""
+                        }`}
                       >
                         {status === "submitting" ? (
                           <span className="flex items-center gap-3">
@@ -1504,6 +1466,11 @@ export function Contact({ info }: { info: BranchContactInfo }) {
                               aria-hidden="true"
                             />
                             {submitCta.loading}
+                          </span>
+                        ) : isMobile && step === 1 ? (
+                          <span className="flex items-center gap-3">
+                            Next
+                            <ArrowRightIcon size={16} />
                           </span>
                         ) : (
                           <span className="flex items-center gap-3">
@@ -1515,62 +1482,12 @@ export function Contact({ info }: { info: BranchContactInfo }) {
                       <p className="mt-5 text-center text-[0.7rem] font-normal tracking-[0.02em] text-[var(--fg-muted)]">
                         {submitCta.footnote}
                       </p>
-                      <div className="h-28 lg:hidden" aria-hidden="true" />
                     </form>
                   </div>
                 )}
               </>
             )}
           </div>
-        </div>
-      </div>
-
-      {/* ---- Sticky mobile action bar ---- */}
-      <div
-        className={`fixed inset-x-0 bottom-0 z-40 border-t border-[var(--contact-sticky-border)] bg-[var(--contact-sticky-bg)] py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-[18px] backdrop-saturate-150 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] lg:hidden ${
-          barHidden
-            ? "pointer-events-none translate-y-full opacity-0"
-            : "translate-y-0 opacity-100"
-        }`}
-      >
-        <div className="mx-auto max-w-[1400px] px-4">
-          {mode === "message" ? (
-            <button
-              type="button"
-              onClick={() => enqFormRef.current?.requestSubmit()}
-              className="flex w-full items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-r from-red-500 to-orange-400 px-6 py-3.5 text-sm font-bold uppercase tracking-[0.14em] text-white shadow-lg shadow-[rgba(255,112,67,0.35)] transition-all duration-200 active:translate-y-0"
-            >
-              <MailIcon size={16} />
-              Send Message
-            </button>
-          ) : step === 1 ? (
-            <button
-              type="button"
-              onClick={handleNext}
-              className="flex w-full items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-r from-red-500 to-orange-400 px-6 py-3.5 text-sm font-bold uppercase tracking-[0.14em] text-white shadow-lg shadow-[rgba(255,112,67,0.35)] transition-all duration-200 active:translate-y-0"
-            >
-              Next
-              <ArrowRightIcon size={16} />
-            </button>
-          ) : (
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => goToStep(1)}
-                className="btn btn-outline btn-lg flex-1"
-              >
-                Back
-              </button>
-              <button
-                type="button"
-                onClick={() => formRef.current?.requestSubmit()}
-                className="flex flex-1 items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-r from-red-500 to-orange-400 px-6 py-3.5 text-sm font-bold uppercase tracking-[0.14em] text-white shadow-lg shadow-[rgba(255,112,67,0.35)] transition-all duration-200 active:translate-y-0"
-              >
-                <CalendarIcon size={16} />
-                Reserve Table
-              </button>
-            </div>
-          )}
         </div>
       </div>
     </section>

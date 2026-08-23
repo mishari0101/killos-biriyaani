@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { reviews } from "@/lib/content/reviews";
-import { ChevronDownIcon, GoogleIcon, StarIcon } from "@/components/ui/icons";
+import { GoogleIcon, StarIcon } from "@/components/ui/icons";
 
 const STAGGER_MS = 60;
 const MAX_STAGGER = 8;
@@ -107,9 +107,7 @@ function ReviewCard({ review }: { review: SectionReviewItem }) {
 
 export function Reviews({ items }: { items: SectionReviewItem[] }) {
   const sectionRef = useRef<HTMLElement>(null);
-  const headerRef = useRef<HTMLDivElement>(null);
   const [inView, setInView] = useState(false);
-  const [expanded, setExpanded] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const trackRef = useRef<HTMLDivElement | null>(null);
@@ -147,24 +145,7 @@ export function Reviews({ items }: { items: SectionReviewItem[] }) {
     [items]
   );
 
-  const hasMore = sorted.length > INITIAL_VISIBLE;
-  const visible = expanded ? sorted : sorted.slice(0, INITIAL_VISIBLE);
-
-  const toggleMore = () => {
-    if (expanded) {
-      setExpanded(false);
-      const header = headerRef.current;
-      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      if (header && header.getBoundingClientRect().top < 0) {
-        header.scrollIntoView({
-          behavior: reduce ? "auto" : "smooth",
-          block: "start",
-        });
-      }
-    } else {
-      setExpanded(true);
-    }
-  };
+  const visible = sorted;
 
   const goTo = (index: number) => {
     const track = trackRef.current;
@@ -251,7 +232,7 @@ export function Reviews({ items }: { items: SectionReviewItem[] }) {
     >
       <div className="mx-auto max-w-[1280px] px-6 lg:px-10">
         {/* ---- Header ---- */}
-        <div ref={headerRef} className="text-center">
+        <div className="text-center">
           <p
             className="review-item text-[0.7rem] font-light uppercase tracking-[0.42em] text-[var(--accent)]"
             style={{ "--d": "0ms" } as React.CSSProperties}
@@ -260,13 +241,13 @@ export function Reviews({ items }: { items: SectionReviewItem[] }) {
           </p>
           <h2
             id="reviews-heading"
-            className="review-item mt-6 text-[clamp(2.4rem,5vw,3.6rem)] font-bold leading-[1.08] tracking-[0.01em] text-[var(--fg)]"
+            className="review-item mt-6 text-[clamp(2.4rem,4.8vw,4.1rem)] font-bold uppercase leading-[1.02] tracking-[-0.01em] text-[var(--fg)]"
             style={
-              { fontFamily: "var(--font-serif)", "--d": "120ms" } as React.CSSProperties
+              { fontFamily: "var(--font-display)", "--d": "120ms" } as React.CSSProperties
             }
           >
             {reviews.titleA}
-            <em className="mt-1 block italic text-[var(--accent)]">
+            <em className="mt-1 block not-italic text-[var(--accent)]">
               {reviews.titleB}
             </em>
           </h2>
@@ -393,31 +374,6 @@ export function Reviews({ items }: { items: SectionReviewItem[] }) {
                 );
               })}
             </div>
-          </div>
-        )}
-
-        {/* ---- View More / View Less ---- */}
-        {hasMore && (
-          <div className="mt-12 flex justify-center">
-            <button
-              type="button"
-              onClick={toggleMore}
-              aria-expanded={expanded}
-              className="group flex h-14 min-h-[48px] w-full items-center justify-center gap-3 rounded-full bg-[var(--brand-cta)] text-white shadow-[0_18px_50px_-18px_rgba(192,57,43,0.55)] transition-all duration-300 ease-in-out hover:-translate-y-1 hover:bg-[var(--brand-cta-strong)] hover:shadow-[0_26px_60px_-18px_rgba(192,57,43,0.65)] active:scale-[0.97] sm:w-auto sm:px-12"
-            >
-              <span className="text-[0.78rem] font-medium uppercase tracking-[0.18em]">
-                {expanded ? "View Less" : "View More"}
-              </span>
-              <span className="inline-flex transition-transform duration-300 ease-in-out group-hover:-rotate-12">
-                <span
-                  className={`inline-flex transition-transform duration-300 ease-in-out ${
-                    expanded ? "rotate-180" : ""
-                  }`}
-                >
-                  <ChevronDownIcon size={16} />
-                </span>
-              </span>
-            </button>
           </div>
         )}
       </div>

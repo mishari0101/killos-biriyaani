@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { DragEvent } from "react";
 import Image from "next/image";
+import { isManagedImageUrl } from "@/lib/uploads/client";
 import {
   CheckCircleIcon,
   ClockIcon,
@@ -67,7 +68,7 @@ function AttractionCard({
             src={item.imageUrl}
             alt={item.name}
             fill
-            unoptimized={item.imageUrl.startsWith("https://i.ibb.co/")}
+            unoptimized={isManagedImageUrl(item.imageUrl)}
             sizes="(min-width: 1280px) 25vw, (min-width: 768px) 33vw, 100vw"
             className="object-cover"
           />

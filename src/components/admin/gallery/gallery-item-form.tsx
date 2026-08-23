@@ -160,19 +160,6 @@ export function GalleryItemForm({ mode, item, onClose, onSave }: GalleryItemForm
                   />
                 </Field>
               </div>
-
-              <div>
-                <TextInput
-                  id="gallery-order"
-                  label="Display Order"
-                  type="number"
-                  inputMode="numeric"
-                  value={form.displayOrder === 0 ? "0" : String(form.displayOrder)}
-                  onChange={(v) => patch("displayOrder", Number(v))}
-                  error={showErrors ? errors.displayOrder : undefined}
-                  hint="Lower numbers appear first."
-                />
-              </div>
             </div>
 
             <div className="mt-5">

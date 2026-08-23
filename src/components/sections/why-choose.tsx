@@ -387,11 +387,11 @@ export function WhyChoose() {
         </p>
         <h2
           id="why-choose-heading"
-          className="wcu-item mt-5 text-[clamp(2.4rem,5vw,3.6rem)] leading-[1.05] text-[var(--fg)]"
-          style={{ fontFamily: "var(--font-serif)", "--d": "120ms" } as React.CSSProperties}
+          className="wcu-item mt-5 text-[clamp(2.4rem,4.8vw,4.1rem)] font-bold uppercase leading-[1.02] tracking-[-0.01em] text-[var(--fg)]"
+          style={{ fontFamily: "var(--font-display)", "--d": "120ms" } as React.CSSProperties}
         >
           {whyChoose.titleA}
-          <span className="block">{whyChoose.titleB}</span>
+          <span className="mt-1 block text-[var(--accent)]">{whyChoose.titleB}</span>
         </h2>
         <p
           className="wcu-item mx-auto mt-6 max-w-2xl text-[1.02rem] font-light leading-relaxed text-[var(--fg-soft)]"
@@ -422,8 +422,8 @@ export function WhyChoose() {
       <div className="wcu-item mx-auto mt-16 max-w-[1200px] px-6 text-center lg:mt-28 lg:px-10">
         <span className="mx-auto mb-7 block h-px w-16 bg-[var(--accent)]" />
         <p
-          className="text-[clamp(1.3rem,2.6vw,1.85rem)] leading-snug text-[var(--fg)]"
-          style={{ fontFamily: "var(--font-serif)" }}
+          className="text-[clamp(1.35rem,2.7vw,1.95rem)] font-semibold leading-[1.5] tracking-[0.01em] text-[var(--fg)]"
+          style={{ fontFamily: "var(--font-display)" }}
         >
           {whyChoose.statement}
         </p>

@@ -5,6 +5,7 @@ import { LoadingScreen } from "@/components/ui/loading-screen";
 import { FaqJsonLd } from "@/components/seo/faq-jsonld";
 import { StructuredJsonLd } from "@/components/seo/structured-jsonld";
 import { Analytics } from "@/components/seo/analytics";
+import { FloatingWhatsApp } from "@/components/sections/floating-whatsapp";
 import { buildSiteMetadata, getSettingsSafe } from "@/lib/seo/public";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -34,6 +35,7 @@ export default async function SiteLayout({
       <FaqJsonLd />
       <StructuredJsonLd />
       <Analytics />
+      <FloatingWhatsApp />
     </LoadingProvider>
   );
 }

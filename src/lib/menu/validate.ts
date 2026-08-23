@@ -17,7 +17,28 @@ export interface MenuItemInput {
   imageUrl: string;
   available: boolean;
   featured: boolean;
+  tags: string[];
   displayOrder: number;
+}
+
+export const MENU_TAG_LIMITS = { maxTags: 6, maxTagLength: 24 } as const;
+
+/** Normalize a raw tag list: trim, drop empties, cap length and count, dedupe (case-insensitive). */
+export function normalizeMenuTags(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const entry of raw) {
+    if (typeof entry !== "string") continue;
+    const tag = entry.trim().slice(0, MENU_TAG_LIMITS.maxTagLength);
+    if (!tag) continue;
+    const key = tag.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(tag);
+    if (out.length >= MENU_TAG_LIMITS.maxTags) break;
+  }
+  return out;
 }
 
 export type MenuItemErrors = Partial<Record<keyof MenuItemInput, string>>;
@@ -97,6 +118,12 @@ export function validateMenuItem(data: MenuItemInput): MenuItemErrors {
 
   if (data.imageUrl.trim() && !isValidImageUrl(data.imageUrl)) {
     errors.imageUrl = "Enter a valid image URL.";
+  }
+
+  if (data.tags.length > MENU_TAG_LIMITS.maxTags) {
+    errors.tags = `Use up to ${MENU_TAG_LIMITS.maxTags} tags.`;
+  } else if (data.tags.some((t) => t.length > MENU_TAG_LIMITS.maxTagLength)) {
+    errors.tags = `Each tag must be ${MENU_TAG_LIMITS.maxTagLength} characters or fewer.`;
   }
 
   if (!Number.isInteger(data.displayOrder) || data.displayOrder < 0 || data.displayOrder > 9999) {

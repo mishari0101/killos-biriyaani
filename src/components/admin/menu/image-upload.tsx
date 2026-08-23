@@ -21,6 +21,7 @@ export function ImageUpload({ value, onChange, error, onPendingKeyChange }: Imag
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [fieldError, setFieldError] = useState<string | null>(null);
+  const [dragging, setDragging] = useState(false);
 
   const clearObjectUrl = useCallback(() => {
     if (previewUrlRef.current) {
@@ -97,10 +98,24 @@ export function ImageUpload({ value, onChange, error, onPendingKeyChange }: Imag
           onClick={() => inputRef.current?.click()}
           aria-label="Choose an image"
           disabled={uploading}
-          className={`group relative flex h-44 w-full shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-xl border bg-[var(--admin-field-bg)] transition-colors disabled:cursor-not-allowed sm:h-36 sm:w-64 ${
+          onDragOver={(e) => {
+            e.preventDefault();
+            if (!uploading) setDragging(true);
+          }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragging(false);
+            if (uploading) return;
+            const file = e.dataTransfer.files?.[0];
+            if (file) void handleFile(file);
+          }}
+          className={`group relative flex h-44 w-full shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-xl border bg-[var(--admin-field-bg)] transition-all disabled:cursor-not-allowed sm:h-36 sm:w-64 ${
             error || fieldError
               ? "border-[var(--brand-cta)]/70"
-              : "border-dashed border-[var(--admin-border-strong)] hover:border-[var(--admin-fg-muted)]"
+              : dragging
+                ? "scale-[1.02] border-solid border-[var(--accent)] shadow-[0_0_0_3px_var(--admin-field-focus)]"
+                : "border-dashed border-[var(--admin-border-strong)] hover:border-[var(--admin-fg-muted)]"
           }`}
         >
           {showImage ? (
@@ -127,6 +142,9 @@ export function ImageUpload({ value, onChange, error, onPendingKeyChange }: Imag
                 {uploading ? "Uploading…" : "No image selected"}
               </span>
               <span className="text-[0.7rem]">JPG, PNG or WebP · max 5 MB</span>
+              <span className="text-[0.65rem] uppercase tracking-[0.1em] text-[var(--admin-fg-muted)]/70">
+                Click or drag &amp; drop
+              </span>
             </span>
           )}
 

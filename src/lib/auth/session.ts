@@ -7,12 +7,34 @@ import {
 } from "./config";
 import { decryptSession, encryptSession, type SessionPayload } from "./jwt";
 
-export async function createSession(payload: SessionPayload) {
+export interface SessionCookieOptions {
+  /** Force the Secure flag. Defaults to true in production (NODE_ENV === "production"). */
+  secure?: boolean;
+}
+
+/** Whether the incoming request arrived over HTTPS, honoring reverse-proxy headers. */
+export function isSecureRequest(request: Request): boolean {
+  const forwarded = request.headers.get("x-forwarded-proto");
+  if (forwarded) {
+    const first = forwarded.split(",")[0]?.trim();
+    if (first) return first === "https";
+  }
+  try {
+    return new URL(request.url).protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+export async function createSession(
+  payload: SessionPayload,
+  options?: SessionCookieOptions
+) {
   const token = await encryptSession(payload);
   const cookieStore = await cookies();
   cookieStore.set(SESSION_COOKIE, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: options?.secure ?? process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
     maxAge: SESSION_MAX_AGE_SECONDS,

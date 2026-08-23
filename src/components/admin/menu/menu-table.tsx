@@ -1,13 +1,16 @@
 "use client";
 
 import Image from "next/image";
+import { useEffect, useRef, useState } from "react";
+import { isManagedImageUrl } from "@/lib/uploads/client";
 import {
-  CheckCircleIcon,
-  EyeIcon,
+  CopyIcon,
   ImageIcon,
+  MoreHorizontalIcon,
   PencilIcon,
-  TrashIcon,
   StarFilledIcon,
+  StarIcon,
+  TrashIcon,
 } from "@/components/ui/icons";
 import type { MenuItemData } from "@/lib/menu/types";
 
@@ -16,6 +19,7 @@ interface MenuTableProps {
   loading: boolean;
   onEdit: (item: MenuItemData) => void;
   onDelete: (item: MenuItemData) => void;
+  onDuplicate: (item: MenuItemData) => void;
   onToggle: (item: MenuItemData, patch: { available?: boolean; featured?: boolean }) => void;
 }
 
@@ -26,15 +30,141 @@ function formatPrice(price: number): string {
   });
 }
 
-export function MenuTable({ items, loading, onEdit, onDelete, onToggle }: MenuTableProps) {
+/** Compact availability switch used inside table rows. */
+function AvailabilitySwitch({
+  item,
+  onToggle,
+}: {
+  item: MenuItemData;
+  onToggle: MenuTableProps["onToggle"];
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={item.available}
+      aria-label={`${item.name} availability`}
+      title={item.available ? "Active — shown on the site" : "Inactive — hidden from the site"}
+      onClick={() => onToggle(item, { available: !item.available })}
+      className="inline-flex cursor-pointer items-center gap-2"
+    >
+      <span className="admin-toggle" data-on={item.available} aria-hidden="true">
+        <span className="admin-toggle-thumb" />
+      </span>
+      <span
+        className={`text-[0.75rem] font-medium ${
+          item.available ? "text-[var(--admin-fg)]" : "text-[var(--admin-fg-muted)]"
+        }`}
+      >
+        {item.available ? "Active" : "Inactive"}
+      </span>
+    </button>
+  );
+}
+
+/** Three-dot row actions menu — Edit / Duplicate / Delete. */
+function RowActions({
+  item,
+  onEdit,
+  onDelete,
+  onDuplicate,
+}: {
+  item: MenuItemData;
+  onEdit: MenuTableProps["onEdit"];
+  onDelete: MenuTableProps["onDelete"];
+  onDuplicate: MenuTableProps["onDuplicate"];
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: PointerEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("pointerdown", onDown);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("pointerdown", onDown);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <div ref={rootRef} className="relative md:flex md:justify-end">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-label={`Actions for ${item.name}`}
+        aria-expanded={open}
+        className={`admin-icon-btn flex h-9 w-9 cursor-pointer items-center justify-center ${
+          open ? "!border-[var(--accent)] text-[var(--accent-strong)]" : ""
+        }`}
+      >
+        <MoreHorizontalIcon size={16} />
+      </button>
+
+      {open && (
+        <div className="admin-card absolute right-0 top-11 z-30 w-44 overflow-hidden !rounded-xl p-1.5">
+          {(
+            [
+              {
+                label: "Edit",
+                Icon: PencilIcon,
+                action: () => onEdit(item),
+                className: "",
+              },
+              {
+                label: "Duplicate",
+                Icon: CopyIcon,
+                action: () => onDuplicate(item),
+                className: "",
+              },
+            ] as const
+          ).map(({ label, Icon, action, className }) => (
+            <button
+              key={label}
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                action();
+              }}
+              className={`flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[0.82rem] text-[var(--admin-fg-soft)] transition-colors hover:bg-[var(--admin-nav-active-bg)] hover:text-[var(--admin-fg)] ${className}`}
+            >
+              <Icon size={14} />
+              {label}
+            </button>
+          ))}
+          <div className="mx-2 my-1 h-px bg-[var(--admin-border)]" />
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false);
+              onDelete(item);
+            }}
+            className="flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[0.82rem] text-[var(--brand-cta)] transition-colors hover:bg-[var(--brand-cta)]/10"
+          >
+            <TrashIcon size={14} />
+            Delete
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function MenuTable({ items, loading, onEdit, onDelete, onDuplicate, onToggle }: MenuTableProps) {
   return (
     <div className="admin-card relative overflow-hidden">
       <div className="admin-table-scroll overflow-x-auto">
         <div className="min-w-[760px]">
-          <div className="hidden grid-cols-[2.4fr_1fr_0.9fr_1fr_1fr_auto] gap-3 border-b border-[var(--admin-border)] bg-[var(--admin-field-bg)] px-6 py-3 md:grid">
+          <div className="hidden grid-cols-[2.4fr_1fr_1fr_0.8fr_0.8fr_auto] gap-3 border-b border-[var(--admin-border)] bg-[var(--admin-field-bg)] px-6 py-3 md:grid">
             <span className="admin-table-th">Item</span>
             <span className="admin-table-th">Price</span>
-            <span className="admin-table-th">Availability</span>
+            <span className="admin-table-th">Status</span>
             <span className="admin-table-th">Featured</span>
             <span className="admin-table-th">Order</span>
             <span className="admin-table-th text-right">Actions</span>
@@ -43,7 +173,7 @@ export function MenuTable({ items, loading, onEdit, onDelete, onToggle }: MenuTa
           {items.map((item) => (
             <div
               key={item.id}
-              className="group grid grid-cols-1 gap-4 border-b border-[var(--admin-border)] px-6 py-5 last:border-b-0 md:grid-cols-[2.4fr_1fr_0.9fr_1fr_1fr_auto] md:items-center md:gap-3"
+              className="group grid grid-cols-1 gap-4 border-b border-[var(--admin-border)] px-6 py-5 last:border-b-0 hover:bg-[color-mix(in_srgb,var(--admin-nav-active-bg)_45%,transparent)] md:grid-cols-[2.4fr_1fr_1fr_0.8fr_0.8fr_auto] md:items-center md:gap-3"
             >
               {/* Item */}
               <div className="flex items-start gap-4">
@@ -53,7 +183,7 @@ export function MenuTable({ items, loading, onEdit, onDelete, onToggle }: MenuTa
                       src={item.imageUrl}
                       alt={item.name}
                       fill
-                      unoptimized={item.imageUrl.startsWith("https://i.ibb.co/")}
+                      unoptimized={isManagedImageUrl(item.imageUrl)}
                       sizes="64px"
                       className="object-cover"
                     />
@@ -75,6 +205,18 @@ export function MenuTable({ items, loading, onEdit, onDelete, onToggle }: MenuTa
                     </h3>
                     <span className="admin-chip">{item.category}</span>
                   </div>
+                  {(item.tags?.length ?? 0) > 0 && (
+                    <ul className="mt-1.5 flex flex-wrap gap-1.5">
+                      {item.tags.slice(0, 3).map((tag) => (
+                        <li
+                          key={tag}
+                          className="rounded-full border border-[var(--admin-border)] px-2 py-0.5 text-[0.62rem] uppercase tracking-[0.08em] text-[var(--admin-fg-soft)]"
+                        >
+                          {tag}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                   <p className="mt-1 line-clamp-2 text-[0.78rem] leading-relaxed text-[var(--admin-fg-soft)]">
                     {item.description || "No description yet."}
                   </p>
@@ -89,24 +231,10 @@ export function MenuTable({ items, loading, onEdit, onDelete, onToggle }: MenuTa
                 </span>
               </div>
 
-              {/* Availability */}
+              {/* Availability switch */}
               <div>
-                <span className="admin-table-th mb-1 block md:hidden">Availability</span>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={item.available}
-                  aria-label={`${item.name} availability`}
-                  onClick={() => onToggle(item, { available: !item.available })}
-                  className={`inline-flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1.5 text-[0.72rem] font-medium transition-colors ${
-                    item.available
-                      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600"
-                      : "border-[var(--admin-border-strong)] bg-[var(--admin-card)] text-[var(--admin-fg-muted)]"
-                  }`}
-                >
-                  {item.available ? <CheckCircleIcon size={13} /> : <EyeIcon size={13} />}
-                  {item.available ? "Available" : "Unavailable"}
-                </button>
+                <span className="admin-table-th mb-1 block md:hidden">Status</span>
+                <AvailabilitySwitch item={item} onToggle={onToggle} />
               </div>
 
               {/* Featured */}
@@ -117,15 +245,15 @@ export function MenuTable({ items, loading, onEdit, onDelete, onToggle }: MenuTa
                   role="switch"
                   aria-checked={item.featured}
                   aria-label={`${item.name} featured`}
+                  title={item.featured ? "Featured" : "Feature this item"}
                   onClick={() => onToggle(item, { featured: !item.featured })}
-                  className={`inline-flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1.5 text-[0.72rem] font-medium transition-colors ${
+                  className={`cursor-pointer rounded-full p-1.5 transition-colors ${
                     item.featured
-                      ? "border-[var(--accent)]/40 bg-[var(--accent)]/10 text-[var(--accent)]"
-                      : "border-[var(--admin-border-strong)] bg-[var(--admin-card)] text-[var(--admin-fg-muted)]"
+                      ? "text-[var(--accent)] hover:bg-[var(--admin-nav-active-bg)]"
+                      : "text-[var(--admin-fg-muted)] hover:bg-[var(--admin-nav-active-bg)] hover:text-[var(--admin-fg)]"
                   }`}
                 >
-                  <StarFilledIcon size={13} />
-                  {item.featured ? "Featured" : "Regular"}
+                  {item.featured ? <StarFilledIcon size={16} /> : <StarIcon size={16} />}
                 </button>
               </div>
 
@@ -138,23 +266,9 @@ export function MenuTable({ items, loading, onEdit, onDelete, onToggle }: MenuTa
               </div>
 
               {/* Actions */}
-              <div className="flex items-center gap-2 md:justify-end">
-                <button
-                  type="button"
-                  onClick={() => onEdit(item)}
-                  aria-label={`Edit ${item.name}`}
-                  className="admin-icon-btn flex h-9 w-9 items-center justify-center"
-                >
-                  <PencilIcon size={15} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onDelete(item)}
-                  aria-label={`Delete ${item.name}`}
-                  className="admin-icon-btn flex h-9 w-9 items-center justify-center text-[var(--brand-cta)] hover:border-[var(--brand-cta)]"
-                >
-                  <TrashIcon size={15} />
-                </button>
+              <div className="md:min-h-9">
+                <span className="admin-table-th mb-1 block md:hidden">Actions</span>
+                <RowActions item={item} onEdit={onEdit} onDelete={onDelete} onDuplicate={onDuplicate} />
               </div>
             </div>
           ))}
