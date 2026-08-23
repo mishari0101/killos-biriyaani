@@ -42,7 +42,7 @@ export async function FloatingWhatsApp() {
       rel="noopener noreferrer"
       aria-label="Chat with us on WhatsApp"
       title="Chat with us on WhatsApp"
-      className="fixed bottom-[88px] right-5 z-40 flex h-11 w-11 items-center justify-center rounded-full bg-[#1FAF58] text-white ring-1 ring-black/10 shadow-[0_10px_28px_-10px_rgba(31,175,88,0.6)] transition-all duration-300 ease-out hover:scale-105 hover:bg-[#24C463] hover:shadow-[0_16px_42px_-10px_rgba(31,175,88,0.85)] active:scale-95 lg:bottom-[96px] lg:right-7 lg:h-[52px] lg:w-[52px]"
+      className="floating-whatsapp group fixed z-40 flex items-center justify-center rounded-full bg-[#1FAF58] text-white ring-1 ring-black/10 shadow-[0_10px_28px_-10px_rgba(31,175,88,0.6)] transition-all duration-300 ease-out hover:scale-105 hover:bg-[#24C463] hover:shadow-[0_16px_42px_-10px_rgba(31,175,88,0.85)] active:scale-95"
     >
       <WhatsAppIcon size={22} />
     </a>
