@@ -2717,6 +2717,22 @@ html.theme-switching *::after {
   transform: translateY(-50%) translateX(1.1rem);
 }
 
+/* Compact variant for dense mobile card lists */
+.admin-toggle.admin-toggle-sm {
+  width: 2.25rem;
+  height: 1.25rem;
+}
+
+.admin-toggle.admin-toggle-sm .admin-toggle-thumb {
+  height: 0.875rem;
+  width: 0.875rem;
+  left: 0.15rem;
+}
+
+.admin-toggle.admin-toggle-sm[data-on="true"] .admin-toggle-thumb {
+  transform: translateY(-50%) translateX(0.95rem);
+}
+
 .admin-color-swatch {
   display: inline-flex;
   align-items: center;

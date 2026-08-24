@@ -38,6 +38,17 @@ export const ArrowRightIcon = (props: IconProps) => (
   </Base>
 );
 
+export const GripVerticalIcon = (props: IconProps) => (
+  <Base {...props} strokeWidth={2}>
+    <circle cx="9" cy="6" r="0.5" fill="currentColor" />
+    <circle cx="9" cy="12" r="0.5" fill="currentColor" />
+    <circle cx="9" cy="18" r="0.5" fill="currentColor" />
+    <circle cx="15" cy="6" r="0.5" fill="currentColor" />
+    <circle cx="15" cy="12" r="0.5" fill="currentColor" />
+    <circle cx="15" cy="18" r="0.5" fill="currentColor" />
+  </Base>
+);
+
 export const ArrowUpIcon = (props: IconProps) => (
   <Base {...props}>
     <path d="M12 19V5" />

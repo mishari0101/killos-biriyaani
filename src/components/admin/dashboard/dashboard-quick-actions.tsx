@@ -13,21 +13,6 @@ const QUICK_ACTIONS = [
     description: "Upload a highlight",
   },
   {
-    label: "Add Attraction",
-    href: "/admin/attractions",
-    description: "New nearby highlight",
-  },
-  {
-    label: "Add Review",
-    href: "/admin/reviews",
-    description: "Post guest feedback",
-  },
-  {
-    label: "Add Branch",
-    href: "/admin/branches",
-    description: "New outlet or hours",
-  },
-  {
     label: "View Reservations",
     href: "/admin/reservations",
     description: "Confirm & manage bookings",

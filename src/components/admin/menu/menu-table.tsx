@@ -158,7 +158,7 @@ function RowActions({
 
 export function MenuTable({ items, loading, onEdit, onDelete, onDuplicate, onToggle }: MenuTableProps) {
   return (
-    <div className="admin-card relative overflow-hidden">
+    <div className="admin-card relative hidden overflow-hidden md:block">
       <div className="admin-table-scroll overflow-x-auto">
         <div className="min-w-[760px]">
           <div className="hidden grid-cols-[2.4fr_1fr_1fr_0.8fr_0.8fr_auto] gap-3 border-b border-[var(--admin-border)] bg-[var(--admin-field-bg)] px-6 py-3 md:grid">

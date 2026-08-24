@@ -15,6 +15,7 @@ import {
   StoreIcon,
   TrashIcon,
 } from "@/components/ui/icons";
+import { isManagedImageUrl } from "@/lib/uploads/client";
 import type { BranchData } from "@/lib/branches/types";
 
 interface BranchGridProps {
@@ -85,11 +86,12 @@ function BranchCard({
       >
         <div className="flex h-28 w-full items-center justify-center overflow-hidden bg-[var(--admin-field-bg)]">
           {item.imageUrl ? (
-            <Image
+<Image
               src={item.imageUrl}
               alt={item.name}
               width={400}
               height={225}
+              unoptimized={isManagedImageUrl(item.imageUrl)}
               sizes="(min-width: 1024px) 25vw, 50vw"
               className="h-full w-full object-cover"
             />

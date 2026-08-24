@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { Toast, type ToastState } from "@/components/admin/settings/toast";
+import { CloseIcon } from "@/components/ui/icons";
 import { GalleryToolbar } from "./gallery-toolbar";
 import { GalleryGrid } from "./gallery-grid";
 import { GalleryItemForm } from "./gallery-item-form";
@@ -11,6 +12,31 @@ import type { GalleryItemData, GalleryListResult } from "@/lib/gallery/types";
 import type { GalleryItemInput } from "@/lib/gallery/validate";
 
 const PAGE_SIZE = 50;
+const HINT_STORAGE_KEY = "killo-admin-gallery-hint-dismissed";
+
+/** Standalone functions so the hint flag survives re-renders via useSyncExternalStore. */
+const hintListeners = new Set<() => void>();
+
+function subscribeHint(callback: () => void): () => void {
+  hintListeners.add(callback);
+  window.addEventListener("storage", callback);
+  return () => {
+    hintListeners.delete(callback);
+    window.removeEventListener("storage", callback);
+  };
+}
+
+function getHintSnapshot(): boolean {
+  try {
+    return window.localStorage.getItem(HINT_STORAGE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function getHintServerSnapshot(): boolean {
+  return true;
+}
 
 interface GalleryManagerProps {
   initial: GalleryListResult;
@@ -59,6 +85,16 @@ export function GalleryManager({ initial }: GalleryManagerProps) {
   const [formState, setFormState] = useState<FormState>(null);
   const [deleteTarget, setDeleteTarget] = useState<GalleryItemData | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const hintDismissed = useSyncExternalStore(subscribeHint, getHintSnapshot, getHintServerSnapshot);
+
+  const dismissHint = useCallback(() => {
+    try {
+      window.localStorage.setItem(HINT_STORAGE_KEY, "1");
+    } catch {
+      /* in-memory only */
+    }
+    for (const listener of hintListeners) listener();
+  }, []);
 
   const refresh = useCallback(() => {
     setRefreshKey((k) => k + 1);
@@ -246,6 +282,22 @@ export function GalleryManager({ initial }: GalleryManagerProps) {
         loading={loading}
         onAdd={() => setFormState({ mode: "create" })}
       />
+
+      {!hintDismissed && (
+        <div className="flex items-center gap-2 rounded-lg border border-[#C9A15C]/20 bg-[#231C17] px-3 py-2 text-[0.72rem] leading-snug text-white/60">
+          <span className="min-w-0 flex-1">
+            Drag a photo&rsquo;s handle to reorder it. Featured photos stay pinned first.
+          </span>
+          <button
+            type="button"
+            onClick={dismissHint}
+            aria-label="Dismiss hint"
+            className="flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-full text-white/45 transition-colors hover:bg-white/10 hover:text-white"
+          >
+            <CloseIcon size={13} />
+          </button>
+        </div>
+      )}
 
       {visibleItems.length === 0 && !loading ? (
         <GalleryEmptyState

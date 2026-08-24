@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { Toast, type ToastState } from "@/components/admin/settings/toast";
 import { MenuToolbar } from "./menu-toolbar";
 import { MenuTable } from "./menu-table";
+import { MenuCardList } from "./menu-card-list";
 import { MenuGrid } from "./menu-grid";
 import { MenuItemForm } from "./menu-item-form";
 import { MenuDeleteModal } from "./menu-delete-modal";
@@ -406,14 +407,26 @@ export function MenuManager({ initial, initialSearch = "" }: MenuManagerProps) {
           onToggle={handleToggle}
         />
       ) : (
-        <MenuTable
-          items={data.items}
-          loading={loading}
-          onEdit={(item) => setFormState({ mode: "edit", item })}
-          onDelete={setDeleteTarget}
-          onDuplicate={handleDuplicate}
-          onToggle={handleToggle}
-        />
+        <>
+          <div className="md:hidden">
+            <MenuCardList
+              items={data.items}
+              loading={loading}
+              onEdit={(item) => setFormState({ mode: "edit", item })}
+              onDelete={setDeleteTarget}
+              onDuplicate={handleDuplicate}
+              onToggle={handleToggle}
+            />
+          </div>
+          <MenuTable
+            items={data.items}
+            loading={loading}
+            onEdit={(item) => setFormState({ mode: "edit", item })}
+            onDelete={setDeleteTarget}
+            onDuplicate={handleDuplicate}
+            onToggle={handleToggle}
+          />
+        </>
       )}
 
       {data.total > PAGE_SIZE && (

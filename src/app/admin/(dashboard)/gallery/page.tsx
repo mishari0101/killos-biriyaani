@@ -18,20 +18,23 @@ async function GalleryContent() {
 export default function GalleryPage() {
   return (
     <div className="mx-auto max-w-6xl">
-      <header className="mb-8">
-        <p className="text-[0.72rem] uppercase tracking-[0.18em] text-[var(--admin-fg-muted)]">
+      <header className="mb-8 max-md:mb-4">
+        <p className="text-[0.72rem] uppercase tracking-[0.18em] text-[var(--admin-fg-muted)] max-md:hidden">
           Admin Studio
         </p>
-        <div className="mt-1 flex items-center gap-3">
+        <div className="flex items-center gap-3 md:mt-1">
           <h1 className="font-serif text-2xl font-semibold text-[var(--admin-fg)] sm:text-3xl">
             Gallery
           </h1>
-          <span className="admin-chip hidden sm:inline-flex">
+          <span className="admin-chip inline-flex">
             <SparklesIcon size={13} />
             Live to the site
           </span>
         </div>
-        <p className="mt-2 max-w-2xl text-[0.9rem] text-[var(--admin-fg-soft)]">
+        <p className="mt-2 max-w-2xl text-[0.9rem] text-[var(--admin-fg-soft)] max-md:mt-1 max-md:text-[0.82rem] md:hidden">
+          Manage guest-facing photos.
+        </p>
+        <p className="mt-2 max-w-2xl text-[0.9rem] text-[var(--admin-fg-soft)] max-md:hidden">
           Curate the photos guests see — upload, reorder with drag &amp; drop, and toggle
           visibility and featured.
         </p>

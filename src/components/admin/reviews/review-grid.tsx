@@ -12,6 +12,7 @@ import {
   StarFilledIcon,
   TrashIcon,
 } from "@/components/ui/icons";
+import { isManagedImageUrl } from "@/lib/uploads/client";
 import type { ReviewData } from "@/lib/reviews/types";
 
 interface ReviewGridProps {
@@ -36,6 +37,7 @@ function Avatar({ name, image }: { name: string; image: string }) {
         alt={name}
         width={40}
         height={40}
+        unoptimized={isManagedImageUrl(image)}
         sizes="40px"
         className="h-10 w-10 shrink-0 rounded-full object-cover ring-1 ring-[var(--admin-border-strong)]"
       />

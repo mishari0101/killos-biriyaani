@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { PencilIcon, StarFilledIcon, StarIcon, TrashIcon } from "@/components/ui/icons";
+import { isManagedImageUrl } from "@/lib/uploads/client";
 import type { MenuItemData } from "@/lib/menu/types";
 
 interface MenuGridProps {
@@ -32,6 +33,7 @@ export function MenuGrid({ items, loading, onEdit, onDelete, onToggle }: MenuGri
                 src={item.imageUrl}
                 alt={item.name}
                 fill
+                unoptimized={isManagedImageUrl(item.imageUrl)}
                 sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
                 className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
               />

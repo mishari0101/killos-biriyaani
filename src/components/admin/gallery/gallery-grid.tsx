@@ -7,6 +7,7 @@ import { isManagedImageUrl } from "@/lib/uploads/client";
 import {
   CheckCircleIcon,
   EyeIcon,
+  GripVerticalIcon,
   ImageIcon,
   MenuIcon,
   PencilIcon,
@@ -57,9 +58,9 @@ function GalleryCard({
         isDragging ? "opacity-40" : ""
       } ${isDropTarget ? "ring-2 ring-[var(--accent)]" : ""}`}
     >
-      {/* ---- Fixed 4:3 image frame — every source crops uniformly ---- */}
+      {/* ---- 16:9 frame on mobile, 4:3 on desktop — sources crop uniformly ---- */}
       <div
-        className="relative aspect-[4/3] cursor-grab overflow-hidden rounded-t-[12px] active:cursor-grabbing"
+        className="relative aspect-video cursor-grab overflow-hidden rounded-t-[12px] active:cursor-grabbing sm:aspect-[4/3]"
         draggable
         onDragStart={onDragStart}
         onDragOver={onDragOver}
@@ -90,13 +91,21 @@ function GalleryCard({
           </div>
         )}
 
-        {/* ---- Featured badge ---- */}
-        {item.featured && (
-          <span className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-[#C9A15C] px-2.5 py-1 text-[0.62rem] font-semibold uppercase tracking-[0.1em] text-[#1A1410] shadow-[0_6px_18px_-6px_rgba(201,161,92,0.6)]">
-            <StarFilledIcon size={11} />
-            Featured
+        {/* ---- Drag handle + Featured badge (top-left, drag passes through) ---- */}
+        <div className="pointer-events-none absolute left-3 top-3 z-10 flex items-center gap-1.5">
+          <span
+            title="Drag to reorder"
+            className="flex h-7 w-7 items-center justify-center rounded-full bg-[#12100D]/60 text-white/70 ring-1 ring-white/15 backdrop-blur-md"
+          >
+            <GripVerticalIcon size={13} />
           </span>
-        )}
+          {item.featured && (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-[#C9A15C] px-2.5 py-1 text-[0.62rem] font-semibold uppercase tracking-[0.1em] text-[#1A1410] shadow-[0_6px_18px_-6px_rgba(201,161,92,0.6)]">
+              <StarFilledIcon size={11} />
+              Featured
+            </span>
+          )}
+        </div>
 
         {/* ---- Options trigger ---- */}
         <button
@@ -267,8 +276,8 @@ export function GalleryGrid({ items, loading, onEdit, onDelete, onToggle, onReor
   };
 
   return (
-    <div className="relative rounded-2xl border border-white/[0.06] bg-[#1A1410] p-4 sm:p-6">
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="relative rounded-2xl border border-white/[0.06] bg-[#1A1410] p-3 sm:p-6 max-sm:rounded-none max-sm:border-0 max-sm:bg-transparent max-sm:p-0">
+      <div className="grid grid-cols-1 gap-3 sm:gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {items.map((item) => (
           <GalleryCard
             key={item.id}

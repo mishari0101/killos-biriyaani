@@ -25,10 +25,88 @@ export function GalleryToolbar({
   loading,
   onAdd,
 }: GalleryToolbarProps) {
+  const visibilitySelect = (
+    <select
+      value={visibility}
+      onChange={(e) => onVisibility(e.target.value as typeof visibility)}
+      className="admin-input h-10 w-full cursor-pointer text-[0.85rem] max-sm:!py-2"
+      aria-label="Filter by visibility"
+    >
+      <option value="all">All</option>
+      <option value="visible">Visible</option>
+      <option value="hidden">Hidden</option>
+    </select>
+  );
+
+  const featuredSelect = (
+    <select
+      value={featured}
+      onChange={(e) => onFeatured(e.target.value as typeof featured)}
+      className="admin-input h-10 w-full cursor-pointer text-[0.85rem] max-sm:!py-2"
+      aria-label="Filter by featured"
+    >
+      <option value="all">All</option>
+      <option value="featured">Featured</option>
+      <option value="regular">Regular</option>
+    </select>
+  );
+
   return (
-    <div className="admin-card overflow-hidden">
-      <div className="flex flex-col gap-4 px-6 py-5 sm:px-7">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="admin-card overflow-hidden max-sm:p-3 sm:px-7 sm:py-5">
+      {/* Mobile — two compact rows + inline count */}
+      <div className="sm:hidden">
+        <div className="flex items-center gap-3">
+          <div className="relative min-w-0 flex-1">
+            <SearchIcon
+              size={16}
+              className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--admin-fg-muted)]"
+            />
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => onSearch(e.target.value)}
+              placeholder="Search photos…"
+              aria-label="Search gallery photos"
+              className="admin-input h-10 pl-10 !pr-3"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={onAdd}
+            aria-label="Add photo"
+            title="Add photo"
+            className="admin-btn admin-btn-primary h-10 w-10 shrink-0 !px-0"
+          >
+            <PlusIcon size={17} />
+          </button>
+        </div>
+
+        <div className="mt-2 grid grid-cols-2 gap-3">
+          <label className="flex flex-col gap-1">
+            <span className="text-[0.6rem] font-medium uppercase tracking-[0.12em] leading-none text-[var(--admin-fg-muted)]">
+              Visibility
+            </span>
+            {visibilitySelect}
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-[0.6rem] font-medium uppercase tracking-[0.12em] leading-none text-[var(--admin-fg-muted)]">
+              Featured
+            </span>
+            {featuredSelect}
+          </label>
+        </div>
+
+        <p
+          className="mt-2 text-right text-[0.68rem] leading-none tabular-nums text-[var(--admin-fg-muted)]"
+          aria-live="polite"
+        >
+          {loading ? "Loading…" : `${total} photo${total === 1 ? "" : "s"}`}
+        </p>
+      </div>
+
+      {/* Desktop — existing layout, minus the permanent drag & drop box */}
+      <div className="hidden flex-col gap-4 sm:flex">
+        <div className="flex items-center justify-between gap-4">
           <div className="relative w-full max-w-sm">
             <SearchIcon
               size={16}
@@ -44,7 +122,7 @@ export function GalleryToolbar({
             />
           </div>
 
-          <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex items-center gap-2.5">
             <span className="text-[0.72rem] uppercase tracking-[0.12em] text-[var(--admin-fg-muted)]">
               {loading ? "Loading…" : `${total} photo${total === 1 ? "" : "s"}`}
             </span>
@@ -57,40 +135,14 @@ export function GalleryToolbar({
 
         <div className="admin-divider" />
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3">
           <label className="flex flex-col gap-1.5">
             <span className="admin-field-label">Visibility</span>
-            <select
-              value={visibility}
-              onChange={(e) => onVisibility(e.target.value as typeof visibility)}
-              className="admin-input cursor-pointer"
-              aria-label="Filter by visibility"
-            >
-              <option value="all">All</option>
-              <option value="visible">Visible</option>
-              <option value="hidden">Hidden</option>
-            </select>
+            {visibilitySelect}
           </label>
-
           <label className="flex flex-col gap-1.5">
             <span className="admin-field-label">Featured</span>
-            <select
-              value={featured}
-              onChange={(e) => onFeatured(e.target.value as typeof featured)}
-              className="admin-input cursor-pointer"
-              aria-label="Filter by featured"
-            >
-              <option value="all">All</option>
-              <option value="featured">Featured</option>
-              <option value="regular">Regular</option>
-            </select>
-          </label>
-
-          <label className="flex flex-col gap-1.5">
-            <span className="admin-field-label">Drag &amp; drop</span>
-            <span className="admin-input flex items-center gap-2 bg-[var(--admin-field-bg)] text-[0.78rem] text-[var(--admin-fg-muted)]">
-              Drag a photo&rsquo;s handle to reorder it. Featured photos stay pinned first.
-            </span>
+            {featuredSelect}
           </label>
         </div>
       </div>
